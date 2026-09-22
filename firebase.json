@@ -1,0 +1,49 @@
+{
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "convive-piso-app",
+          "appId": "1:902658804253:android:636f3c098e1a9c82a814f4",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "convive-piso-app",
+          "configurations": {
+            "android": "1:902658804253:android:636f3c098e1a9c82a814f4",
+            "ios": "1:902658804253:ios:7f4a2d9f9d2eb097a814f4"
+          }
+        }
+      }
+    }
+  },
+  "firestore": {
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
+  },
+  "emulators": {
+    "firestore": {
+      "port": 8080,
+      "host": "127.0.0.1"
+    },
+    "ui": {
+      "enabled": false
+    }
+  },
+  "functions": [
+    {
+      "source": "functions",
+      "codebase": "convive",
+      "disallowLegacyRuntimeConfig": true,
+      "ignore": [
+        "node_modules",
+        ".git",
+        "firebase-debug.log",
+        "firebase-debug.*.log",
+        "*.local"
+      ]
+    }
+  ]
+}

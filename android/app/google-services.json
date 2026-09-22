@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "902658804253",
+    "project_id": "convive-piso-app",
+    "storage_bucket": "convive-piso-app.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:902658804253:android:636f3c098e1a9c82a814f4",
+        "android_client_info": {
+          "package_name": "com.convive.convive"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAY1_1dSs00h6N1KqL7i7epQsab70yCHNc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
