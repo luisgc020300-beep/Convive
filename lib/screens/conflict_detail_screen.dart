@@ -36,6 +36,8 @@ class ConflictDetailScreen extends StatelessWidget {
               _MediationResult(household: household, conflict: conflict),
             ConflictStatus.readyForMediation =>
               const _Generando(),
+            ConflictStatus.mediationFailed =>
+              const _MediacionFallida(),
             ConflictStatus.awaitingOtherSide =>
               _EsperandoORespondiendo(household: household, conflict: conflict),
           };
@@ -57,6 +59,34 @@ class _Generando extends StatelessWidget {
           CircularProgressIndicator(),
           SizedBox(height: 16),
           Text('Generando la mediación...'),
+        ],
+      ),
+    );
+  }
+}
+
+class _MediacionFallida extends StatelessWidget {
+  const _MediacionFallida();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Padding(
+      padding: EdgeInsets.all(24),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.error_outline, size: 48, color: Colors.red),
+          SizedBox(height: 16),
+          Text(
+            'No se pudo generar la mediación esta vez.',
+            textAlign: TextAlign.center,
+          ),
+          SizedBox(height: 8),
+          Text(
+            'Vuestras dos versiones ya están guardadas — inténtalo de nuevo '
+            'más tarde o contacta con soporte si se repite.',
+            textAlign: TextAlign.center,
+          ),
         ],
       ),
     );

@@ -40,6 +40,7 @@ class ConflictsTab extends StatelessWidget {
                 ConflictStatus.awaitingOtherSide => c.initiatorUid == myUid
                     ? ('Esperando a $otro', Colors.orange)
                     : ('Esperándote', Colors.red),
+                ConflictStatus.mediationFailed => ('Error', Colors.red),
               };
               return Card(
                 child: ListTile(

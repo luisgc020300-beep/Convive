@@ -1,7 +1,14 @@
 // lib/models/conflict.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-enum ConflictStatus { awaitingOtherSide, readyForMediation, mediated, followedUp, closed }
+enum ConflictStatus {
+  awaitingOtherSide,
+  readyForMediation,
+  mediated,
+  followedUp,
+  closed,
+  mediationFailed,
+}
 
 extension ConflictStatusX on ConflictStatus {
   static ConflictStatus fromWire(String? v) => switch (v) {
@@ -9,6 +16,7 @@ extension ConflictStatusX on ConflictStatus {
         'mediated' => ConflictStatus.mediated,
         'followed_up' => ConflictStatus.followedUp,
         'closed' => ConflictStatus.closed,
+        'mediation_failed' => ConflictStatus.mediationFailed,
         _ => ConflictStatus.awaitingOtherSide,
       };
 }

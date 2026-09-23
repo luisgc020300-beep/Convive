@@ -351,7 +351,9 @@ ${textoB || '(no ha respondido todavía)'}`;
     },
     body: JSON.stringify({
       model: MEDIATION_MODEL,
-      max_tokens: 1024,
+      // 1024 se quedaba corto y cortaba el JSON a mitad de un campo,
+      // haciendo que fallara el parseo y cayera al camino de repliegue.
+      max_tokens: 2048,
       system: SYSTEM_PROMPT_MEDIADOR,
       messages: [{ role: 'user', content: userMessage }],
     }),
@@ -362,9 +364,23 @@ ${textoB || '(no ha respondido todavía)'}`;
     throw new HttpsError('internal', `Error del servicio de IA: ${res.status}`);
   }
   const data = await res.json();
-  const rawText = data.content[0].text;
+  // No asumir que content[0] es el bloque de texto — los modelos más nuevos
+  // pueden devolver un bloque de "thinking" antes del de texto.
+  const textBlock = (data.content || []).find((b) => b.type === 'text');
+  const rawText = textBlock?.text;
+  if (data.stop_reason === 'max_tokens') {
+    console.warn('ejecutarMediacion: la respuesta se cortó por max_tokens — probable JSON incompleto');
+  }
 
   let mediation;
+  if (!rawText) {
+    // Sin texto utilizable no hay nada que parsear ni que degradar — se
+    // registra el cuerpo completo para diagnóstico y se falla con claridad
+    // en vez de intentar escribir "undefined" en Firestore (que lo rechaza).
+    console.error('ejecutarMediacion: sin bloque de texto en la respuesta', JSON.stringify(data));
+    throw new HttpsError('internal', 'El mediador no devolvió una respuesta utilizable.');
+  }
+
   try {
     const limpio = rawText.trim().replace(/^```json\s*/i, '').replace(/```$/, '');
     const parsed = JSON.parse(limpio);
@@ -474,7 +490,14 @@ exports.submitConflictSide = onCall({ region: REGION, secrets: [_anthropicKey] }
   const sidesSnap = await conflictRef.collection('sides').get();
   if (sidesSnap.size >= 2) {
     await conflictRef.update({ status: 'ready_for_mediation' });
-    await ejecutarMediacion(householdId, conflictId);
+    try {
+      await ejecutarMediacion(householdId, conflictId);
+    } catch (e) {
+      // Sin esto, un fallo de la IA deja el conflicto atascado en
+      // "generando..." para siempre, sin ninguna salida para el usuario.
+      await conflictRef.update({ status: 'mediation_failed' });
+      throw e;
+    }
   }
 
   return { ok: true };
