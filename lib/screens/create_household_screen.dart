@@ -1,0 +1,108 @@
+// lib/screens/create_household_screen.dart
+import 'package:flutter/material.dart';
+
+import '../services/household_service.dart';
+
+class CreateHouseholdScreen extends StatefulWidget {
+  const CreateHouseholdScreen({super.key});
+
+  @override
+  State<CreateHouseholdScreen> createState() => _CreateHouseholdScreenState();
+}
+
+class _CreateHouseholdScreenState extends State<CreateHouseholdScreen> {
+  final _formKey = GlobalKey<FormState>();
+  final _nombreCtrl = TextEditingController();
+  bool _cargando = false;
+  String? _error;
+
+  @override
+  void dispose() {
+    _nombreCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _crear() async {
+    if (!_formKey.currentState!.validate()) return;
+    setState(() { _cargando = true; _error = null; });
+    try {
+      final result = await HouseholdService.createHousehold(_nombreCtrl.text.trim());
+      if (!mounted) return;
+      await showDialog<void>(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) => AlertDialog(
+          title: const Text('¡Piso creado!'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Comparte este código con tus compañeros para que se unan:'),
+              const SizedBox(height: 12),
+              Center(
+                child: Text(
+                  result.joinCode,
+                  style: const TextStyle(
+                      fontSize: 32, fontWeight: FontWeight.bold, letterSpacing: 4),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            FilledButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Text('Continuar'),
+            ),
+          ],
+        ),
+      );
+      // La HouseholdGateScreen reacciona sola al stream de activeHouseholdId
+      // y navega al piso — no hace falta Navigator.pop aquí.
+    } catch (e) {
+      setState(() => _error = 'No se pudo crear el piso: $e');
+    } finally {
+      if (mounted) setState(() => _cargando = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Crear piso')),
+      body: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              TextFormField(
+                controller: _nombreCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Nombre del piso',
+                  hintText: 'Ej: Piso de Cájar',
+                ),
+                validator: (v) => (v == null || v.trim().isEmpty)
+                    ? 'Ponle un nombre a tu piso'
+                    : null,
+              ),
+              if (_error != null) ...[
+                const SizedBox(height: 12),
+                Text(_error!, style: const TextStyle(color: Colors.red)),
+              ],
+              const SizedBox(height: 20),
+              FilledButton(
+                onPressed: _cargando ? null : _crear,
+                child: _cargando
+                    ? const SizedBox(
+                        width: 20, height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2))
+                    : const Text('Crear piso'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}

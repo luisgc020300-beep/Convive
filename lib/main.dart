@@ -13,6 +13,7 @@ import 'core/service_locator.dart';
 import 'firebase_options.dart';
 import 'screens/household_gate_screen.dart';
 import 'screens/login_screen.dart';
+import 'services/household_service.dart';
 import 'theme/theme_notifier.dart';
 
 void main() async {
@@ -32,6 +33,10 @@ void main() async {
   await FirebaseCrashlytics.instance.setCrashlyticsCollectionEnabled(!kDebugMode);
 
   await setupLocator();
+
+  FirebaseAuth.instance.authStateChanges().listen((user) {
+    if (user != null) HouseholdService.asegurarPerfilUsuario();
+  });
 
   runApp(const ConviveApp());
 }

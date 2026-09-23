@@ -1,41 +1,28 @@
 // lib/screens/household_gate_screen.dart
 //
-// Placeholder de la Fase 0/1 — decide si el usuario ya tiene un piso activo.
-// La Fase 1 sustituye esto por el flujo real de crear/unirse a un piso.
-import 'package:firebase_auth/firebase_auth.dart';
+// Decide, en vivo, si el usuario ya tiene un piso activo: si no, muestra el
+// flujo de crear/unirse; si sí, entra directamente al piso.
 import 'package:flutter/material.dart';
+
+import '../services/household_service.dart';
+import 'household_home_screen.dart';
+import 'household_onboarding_screen.dart';
 
 class HouseholdGateScreen extends StatelessWidget {
   const HouseholdGateScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final email = FirebaseAuth.instance.currentUser?.email ?? '';
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Convive'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: () => FirebaseAuth.instance.signOut(),
-          ),
-        ],
-      ),
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.home_outlined, size: 48),
-              const SizedBox(height: 16),
-              Text('Sesión iniciada como $email'),
-              const SizedBox(height: 8),
-              const Text('Crear/unirse a un piso llega en la Fase 1.'),
-            ],
-          ),
-        ),
-      ),
+    return StreamBuilder<String?>(
+      stream: HouseholdService.streamActiveHouseholdId(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Scaffold(body: Center(child: CircularProgressIndicator()));
+        }
+        final householdId = snapshot.data;
+        if (householdId == null) return const HouseholdOnboardingScreen();
+        return HouseholdHomeScreen(householdId: householdId);
+      },
     );
   }
 }
