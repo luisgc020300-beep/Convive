@@ -256,12 +256,105 @@ class _MediationResult extends StatelessWidget {
             Text(m.suggestion ?? ''),
           ]),
         ],
+        if (conflict.status == ConflictStatus.followedUp) ...[
+          const SizedBox(height: 16),
+          _SeguimientoCard(household: household, conflict: conflict),
+        ],
         const SizedBox(height: 16),
         ExpansionTile(
           title: const Text('Datos que consideró el mediador'),
           children: [_HistorialCard(householdId: household.id)],
         ),
       ],
+    );
+  }
+}
+
+class _SeguimientoCard extends StatefulWidget {
+  const _SeguimientoCard({required this.household, required this.conflict});
+
+  final Household household;
+  final Conflict conflict;
+
+  @override
+  State<_SeguimientoCard> createState() => _SeguimientoCardState();
+}
+
+class _SeguimientoCardState extends State<_SeguimientoCard> {
+  bool _enviando = false;
+  final _comentarioCtrl = TextEditingController();
+
+  @override
+  void dispose() {
+    _comentarioCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _responder(bool funciono) async {
+    setState(() => _enviando = true);
+    try {
+      await ConflictService.respondToFollowUp(
+        householdId: widget.household.id,
+        conflictId: widget.conflict.id,
+        worked: funciono,
+        comment: _comentarioCtrl.text,
+      );
+    } finally {
+      if (mounted) setState(() => _enviando = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final myUid = FirebaseAuth.instance.currentUser?.uid ?? '';
+    final yaRespondi = widget.conflict.wasFollowedUp(myUid);
+
+    if (yaRespondi) {
+      final r = widget.conflict.followUpResponses[myUid]!;
+      return Card(
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Text(r.worked
+              ? 'Marcaste que la sugerencia sí funcionó. Gracias.'
+              : 'Marcaste que la sugerencia no funcionó. Gracias por contarlo.'),
+        ),
+      );
+    }
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('¿Funcionó la sugerencia?',
+                style: Theme.of(context).textTheme.titleSmall),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _comentarioCtrl,
+              decoration: const InputDecoration(hintText: 'Comentario opcional'),
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: _enviando ? null : () => _responder(false),
+                    child: const Text('No'),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: FilledButton(
+                    onPressed: _enviando ? null : () => _responder(true),
+                    child: const Text('Sí'),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

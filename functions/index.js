@@ -7,6 +7,7 @@ const { onSchedule }         = require('firebase-functions/v2/scheduler');
 const { defineSecret }       = require('firebase-functions/params');
 const { initializeApp }      = require('firebase-admin/app');
 const { getFirestore, FieldValue, Timestamp } = require('firebase-admin/firestore');
+const { getMessaging }       = require('firebase-admin/messaging');
 
 const _anthropicKey = defineSecret('ANTHROPIC_API_KEY');
 
@@ -16,6 +17,7 @@ const db = getFirestore();
 const REGION = 'europe-west1';
 const MAX_MIEMBROS_PISO = 10;
 const CONFLICT_TIMEOUT_HORAS = 48;
+const FOLLOWUP_DELAY_DIAS = 3;
 const HISTORIAL_MEDIACION_DIAS = 14;
 const MEDIATION_MODEL = 'claude-sonnet-5';
 
@@ -499,6 +501,119 @@ exports.submitConflictSide = onCall({ region: REGION, secrets: [_anthropicKey] }
       throw e;
     }
   }
+
+  return { ok: true };
+});
+
+// =============================================================================
+// 7. CERRAR CONFLICTOS SIN RESPUESTA — cada hora
+// =============================================================================
+// Si pasan 48h y la otra persona no ha escrito su versión, se genera una
+// mediación con lo único que hay disponible en vez de dejarlo esperando
+// para siempre. ejecutarMediacion ya sabe manejar el caso de una sola parte.
+exports.checkConflictTimeouts = onSchedule(
+  { schedule: 'every 60 minutes', timeZone: 'UTC', region: REGION, secrets: [_anthropicKey] },
+  async () => {
+    const ahora = Timestamp.now();
+    const vencidosSnap = await db.collectionGroup('conflicts')
+        .where('status', '==', 'awaiting_other_side')
+        .where('timeoutAt', '<=', ahora)
+        .get();
+
+    for (const doc of vencidosSnap.docs) {
+      // doc.ref.parent.parent es el household — collectionGroup no da el id directo.
+      const householdId = doc.ref.parent.parent.id;
+      try {
+        await doc.ref.update({ status: 'ready_for_mediation' });
+        await ejecutarMediacion(householdId, doc.id);
+      } catch (e) {
+        console.error('checkConflictTimeouts: fallo mediando', householdId, doc.id, e);
+        await doc.ref.update({ status: 'mediation_failed' }).catch(() => {});
+      }
+    }
+  }
+);
+
+// =============================================================================
+// 8. SEGUIMIENTO — cada día, a los pocos días de mediar
+// =============================================================================
+// Pregunta si la sugerencia funcionó, por notificación push, unos días
+// después de que se generara la mediación — no tiene sentido preguntar el
+// mismo día, hace falta que haya pasado tiempo para saberlo de verdad.
+exports.sendFollowUp = onSchedule(
+  { schedule: 'every day 10:00', timeZone: 'UTC', region: REGION },
+  async () => {
+    const limite = Timestamp.fromMillis(Date.now() - FOLLOWUP_DELAY_DIAS * 24 * 60 * 60 * 1000);
+    const candidatosSnap = await db.collectionGroup('conflicts')
+        .where('status', '==', 'mediated')
+        .where('mediation.generatedAt', '<=', limite)
+        .get();
+
+    for (const doc of candidatosSnap.docs) {
+      const conflict = doc.data();
+      if (conflict.followUp?.sentAt) continue; // ya se envió antes
+
+      const householdId = doc.ref.parent.parent.id;
+      await doc.ref.update({
+        status: 'followed_up',
+        'followUp.scheduledAt': FieldValue.serverTimestamp(),
+        'followUp.sentAt': FieldValue.serverTimestamp(),
+      });
+
+      // Notificar a los dos participantes — el fallo al notificar no debe
+      // impedir que se marque como enviado (evita reintentos infinitos por
+      // un token caducado de un solo usuario).
+      for (const uid of conflict.participants || []) {
+        try {
+          const userSnap = await db.collection('users').doc(uid).get();
+          const token = userSnap.data()?.fcmToken;
+          if (!token) continue;
+          await getMessaging().send({
+            token,
+            notification: {
+              title: 'Convive',
+              body: '¿Funcionó la sugerencia del mediador? Cuéntanoslo.',
+            },
+            data: { type: 'conflict_followup', householdId, conflictId: doc.id },
+          });
+        } catch (e) {
+          console.error('sendFollowUp: fallo notificando a', uid, e);
+        }
+      }
+    }
+  }
+);
+
+// =============================================================================
+// 9. RESPONDER AL SEGUIMIENTO
+// =============================================================================
+exports.respondToFollowUp = onCall({ region: REGION }, async (request) => {
+  if (!request.auth) throw new HttpsError('unauthenticated', 'Debes estar autenticado.');
+  const uid = request.auth.uid;
+  const householdId = request.data?.householdId;
+  const conflictId = request.data?.conflictId;
+  const worked = request.data?.worked;
+  const comment = typeof request.data?.comment === 'string' ? request.data.comment.trim() : '';
+
+  if (!householdId || !conflictId || typeof worked !== 'boolean') {
+    throw new HttpsError('invalid-argument', 'Faltan datos.');
+  }
+
+  const conflictRef = db.collection('households').doc(householdId).collection('conflicts').doc(conflictId);
+  const conflictSnap = await conflictRef.get();
+  if (!conflictSnap.exists) throw new HttpsError('not-found', 'El conflicto no existe.');
+  const conflict = conflictSnap.data();
+  if (!(conflict.participants || []).includes(uid)) {
+    throw new HttpsError('permission-denied', 'No formas parte de este conflicto.');
+  }
+
+  await conflictRef.update({
+    [`followUp.responses.${uid}`]: {
+      worked,
+      comment,
+      respondedAt: FieldValue.serverTimestamp(),
+    },
+  });
 
   return { ok: true };
 });

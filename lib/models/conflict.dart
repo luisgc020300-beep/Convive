@@ -48,6 +48,18 @@ class ConflictMediation {
       );
 }
 
+class FollowUpResponse {
+  final bool worked;
+  final String? comment;
+
+  const FollowUpResponse({required this.worked, this.comment});
+
+  factory FollowUpResponse.fromMap(Map<String, dynamic> m) => FollowUpResponse(
+        worked: m['worked'] as bool? ?? false,
+        comment: m['comment'] as String?,
+      );
+}
+
 class Conflict {
   final String id;
   final List<String> participants;
@@ -55,6 +67,7 @@ class Conflict {
   final ConflictStatus status;
   final DateTime? timeoutAt;
   final ConflictMediation? mediation;
+  final Map<String, FollowUpResponse> followUpResponses;
 
   const Conflict({
     required this.id,
@@ -63,11 +76,14 @@ class Conflict {
     required this.status,
     this.timeoutAt,
     this.mediation,
+    this.followUpResponses = const {},
   });
 
   factory Conflict.fromDoc(DocumentSnapshot<Map<String, dynamic>> doc) {
     final d = doc.data() ?? {};
     final mediationMap = d['mediation'] as Map<String, dynamic>?;
+    final followUpMap = d['followUp'] as Map<String, dynamic>?;
+    final responsesMap = followUpMap?['responses'] as Map<String, dynamic>?;
     return Conflict(
       id: doc.id,
       participants: (d['participants'] as List?)?.cast<String>() ?? [],
@@ -75,9 +91,14 @@ class Conflict {
       status: ConflictStatusX.fromWire(d['status'] as String?),
       timeoutAt: (d['timeoutAt'] as Timestamp?)?.toDate(),
       mediation: mediationMap != null ? ConflictMediation.fromMap(mediationMap) : null,
+      followUpResponses: (responsesMap ?? {}).map(
+        (uid, v) => MapEntry(uid, FollowUpResponse.fromMap(v as Map<String, dynamic>)),
+      ),
     );
   }
 
   String otherParticipant(String myUid) =>
       participants.firstWhere((p) => p != myUid, orElse: () => '');
+
+  bool wasFollowedUp(String myUid) => followUpResponses.containsKey(myUid);
 }

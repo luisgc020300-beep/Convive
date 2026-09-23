@@ -81,4 +81,20 @@ class ConflictService {
       'text': text,
     });
   }
+
+  static Future<void> respondToFollowUp({
+    required String householdId,
+    required String conflictId,
+    required bool worked,
+    String? comment,
+  }) async {
+    final callable = FirebaseFunctions.instanceFor(region: _region)
+        .httpsCallable('respondToFollowUp');
+    await callable.call<Map<String, dynamic>>({
+      'householdId': householdId,
+      'conflictId': conflictId,
+      'worked': worked,
+      if (comment != null && comment.trim().isNotEmpty) 'comment': comment.trim(),
+    });
+  }
 }
