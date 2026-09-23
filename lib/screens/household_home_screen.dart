@@ -1,11 +1,12 @@
 // lib/screens/household_home_screen.dart
 //
-// Fase 2: pestañas de Tareas (+ notas) y Piso. La Fase 3 añade Conflictos.
+// Fase 3: pestañas de Tareas (+ notas), Conflictos y Piso.
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../models/household.dart';
 import '../services/household_service.dart';
+import 'conflicts_tab.dart';
 import 'tasks_tab.dart';
 
 class HouseholdHomeScreen extends StatelessWidget {
@@ -23,7 +24,7 @@ class HouseholdHomeScreen extends StatelessWidget {
         }
         final household = snapshot.data!;
         return DefaultTabController(
-          length: 2,
+          length: 3,
           child: Scaffold(
             appBar: AppBar(
               title: Text(household.name),
@@ -35,11 +36,13 @@ class HouseholdHomeScreen extends StatelessWidget {
               ],
               bottom: const TabBar(tabs: [
                 Tab(text: 'Tareas'),
+                Tab(text: 'Conflictos'),
                 Tab(text: 'Piso'),
               ]),
             ),
             body: TabBarView(children: [
               TasksTab(household: household),
+              ConflictsTab(household: household),
               _PisoTab(household: household),
             ]),
           ),

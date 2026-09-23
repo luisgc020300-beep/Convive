@@ -4,14 +4,20 @@
 
 const { onCall, HttpsError } = require('firebase-functions/v2/https');
 const { onSchedule }         = require('firebase-functions/v2/scheduler');
+const { defineSecret }       = require('firebase-functions/params');
 const { initializeApp }      = require('firebase-admin/app');
 const { getFirestore, FieldValue, Timestamp } = require('firebase-admin/firestore');
+
+const _anthropicKey = defineSecret('ANTHROPIC_API_KEY');
 
 initializeApp();
 const db = getFirestore();
 
 const REGION = 'europe-west1';
 const MAX_MIEMBROS_PISO = 10;
+const CONFLICT_TIMEOUT_HORAS = 48;
+const HISTORIAL_MEDIACION_DIAS = 14;
+const MEDIATION_MODEL = 'claude-sonnet-5';
 
 // Sin 0/O/1/I/L — se confunden fácil al leer un código en voz alta o a mano.
 const JOIN_CODE_CHARS = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
@@ -248,3 +254,228 @@ exports.generateRecurringPeriods = onSchedule(
     }
   }
 );
+
+// =============================================================================
+// CONFLICTOS — mediación con IA
+// =============================================================================
+
+// Agrega el historial de tareas de los últimos HISTORIAL_MEDIACION_DIAS días
+// por persona y tarea — el dato objetivo que evita que el mediador arbitre
+// "él dice, ella dice" a ciegas.
+async function resumenHistorialTareas(householdId) {
+  const desde = Timestamp.fromMillis(Date.now() - HISTORIAL_MEDIACION_DIAS * 24 * 60 * 60 * 1000);
+  const snap = await db.collection('households').doc(householdId)
+      .collection('completions')
+      .where('completedAt', '>=', desde)
+      .get();
+
+  const porUid = {};
+  snap.forEach((doc) => {
+    const d = doc.data();
+    const uid = d.completedBy || d.assigneeUid;
+    if (!uid) return;
+    const titulo = d.taskTitle || 'tarea';
+    porUid[uid] = porUid[uid] || {};
+    porUid[uid][titulo] = porUid[uid][titulo] || { done: 0, missed: 0 };
+    if (d.status === 'done') porUid[uid][titulo].done++;
+    else if (d.status === 'missed') porUid[uid][titulo].missed++;
+  });
+  return porUid;
+}
+
+function formatearHistorialPersona(nombre, tareas) {
+  if (!tareas || Object.keys(tareas).length === 0) {
+    return `${nombre}: sin datos de tareas en los últimos ${HISTORIAL_MEDIACION_DIAS} días.`;
+  }
+  const lineas = Object.entries(tareas)
+      .map(([titulo, s]) => `  - ${titulo}: hecha ${s.done} veces, no hecha ${s.missed} veces`);
+  return `${nombre}:\n${lineas.join('\n')}`;
+}
+
+const SYSTEM_PROMPT_MEDIADOR = `Eres un mediador neutral de conflictos de convivencia en un piso compartido. Nunca tomas partido. Tu única base son lo que cada persona ha escrito y los datos objetivos de tareas que se te dan.
+
+Instrucciones:
+1. Resume la versión de cada persona parafraseando — nunca cites textualmente, porque la otra persona leerá ese resumen y una cita textual suena a munición contra ella.
+2. Señala los puntos en común entre ambas versiones.
+3. Da UNA sugerencia concreta y accionable, no un consejo genérico tipo "comunicaos mejor".
+4. Si una afirmación de alguna de las partes choca con los datos objetivos de tareas, señálalo explícitamente y con respeto (ej: "Persona A dice que siempre friega, pero el registro muestra que lo hizo 2 de las últimas 8 veces que le tocaba").
+5. Si falta la versión de una de las partes, dilo claramente, usa un tono con reservas ("con la información disponible por ahora..."), no repartas culpas, e invita a que la otra persona añada su versión cuando pueda.
+6. Tono calmado, sin moralizar, dirigido a ambas personas por igual.
+7. Responde ÚNICAMENTE con JSON válido, sin bloques de código markdown ni texto fuera del JSON, con esta forma exacta:
+{"resumen_a": "...", "resumen_b": "...", "puntos_comunes": "...", "sugerencia": "...", "certeza": "alta" | "una_sola_parte"}`;
+
+async function ejecutarMediacion(householdId, conflictId) {
+  const conflictRef = db.collection('households').doc(householdId)
+      .collection('conflicts').doc(conflictId);
+  const [conflictSnap, householdSnap, sidesSnap] = await Promise.all([
+    conflictRef.get(),
+    db.collection('households').doc(householdId).get(),
+    conflictRef.collection('sides').get(),
+  ]);
+  if (!conflictSnap.exists) return;
+  const conflict = conflictSnap.data();
+  const [uidA, uidB] = conflict.participants;
+
+  const textosPorUid = {};
+  sidesSnap.forEach((doc) => { textosPorUid[doc.id] = doc.data().text; });
+  const textoA = textosPorUid[uidA] || null;
+  const textoB = textosPorUid[uidB] || null;
+  const unaSolaParte = !textoA || !textoB;
+
+  const profiles = householdSnap.data()?.memberProfiles || {};
+  const nombreA = profiles[uidA]?.displayName || 'Persona A';
+  const nombreB = profiles[uidB]?.displayName || 'Persona B';
+
+  const historial = await resumenHistorialTareas(householdId);
+  const historialTexto = [
+    formatearHistorialPersona(nombreA, historial[uidA]),
+    formatearHistorialPersona(nombreB, historial[uidB]),
+  ].join('\n');
+
+  const userMessage = `DATOS OBJETIVOS DE TAREAS (últimos ${HISTORIAL_MEDIACION_DIAS} días):
+${historialTexto}
+
+VERSIÓN DE ${nombreA}:
+${textoA || '(no ha respondido todavía)'}
+
+VERSIÓN DE ${nombreB}:
+${textoB || '(no ha respondido todavía)'}`;
+
+  const apiKey = _anthropicKey.value();
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01',
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: MEDIATION_MODEL,
+      max_tokens: 1024,
+      system: SYSTEM_PROMPT_MEDIADOR,
+      messages: [{ role: 'user', content: userMessage }],
+    }),
+  });
+
+  if (!res.ok) {
+    console.error('ejecutarMediacion: Anthropic respondió', res.status, await res.text());
+    throw new HttpsError('internal', `Error del servicio de IA: ${res.status}`);
+  }
+  const data = await res.json();
+  const rawText = data.content[0].text;
+
+  let mediation;
+  try {
+    const limpio = rawText.trim().replace(/^```json\s*/i, '').replace(/```$/, '');
+    const parsed = JSON.parse(limpio);
+    mediation = {
+      summaryA: parsed.resumen_a || '',
+      summaryB: parsed.resumen_b || '',
+      commonGround: parsed.puntos_comunes || '',
+      suggestion: parsed.sugerencia || '',
+      oneSided: unaSolaParte,
+      generatedAt: FieldValue.serverTimestamp(),
+    };
+  } catch (e) {
+    // Degradación defensiva: si el JSON no parsea, no reventamos la función
+    // entera — guardamos el texto crudo para no perder la mediación.
+    console.error('ejecutarMediacion: fallo al parsear JSON', e, rawText);
+    mediation = {
+      summaryRaw: rawText,
+      oneSided: unaSolaParte,
+      generatedAt: FieldValue.serverTimestamp(),
+    };
+  }
+
+  await conflictRef.update({ status: 'mediated', mediation });
+}
+
+// =============================================================================
+// 5. INICIAR UN CONFLICTO
+// =============================================================================
+exports.startConflict = onCall({ region: REGION, secrets: [_anthropicKey] }, async (request) => {
+  if (!request.auth) throw new HttpsError('unauthenticated', 'Debes estar autenticado.');
+  const uid = request.auth.uid;
+  const householdId = request.data?.householdId;
+  const otherUid = request.data?.otherUid;
+  const text = typeof request.data?.text === 'string' ? request.data.text.trim() : '';
+
+  if (!householdId || !otherUid || !text) {
+    throw new HttpsError('invalid-argument', 'Faltan datos.');
+  }
+  if (uid === otherUid) {
+    throw new HttpsError('invalid-argument', 'No puedes abrir un conflicto contigo mismo.');
+  }
+  if (text.length > 4000) {
+    throw new HttpsError('invalid-argument', 'El texto es demasiado largo.');
+  }
+
+  const householdSnap = await db.collection('households').doc(householdId).get();
+  if (!householdSnap.exists) throw new HttpsError('not-found', 'El piso no existe.');
+  const members = householdSnap.data().members || [];
+  if (!members.includes(uid) || !members.includes(otherUid)) {
+    throw new HttpsError('permission-denied', 'Ambas personas deben pertenecer al piso.');
+  }
+
+  const conflictRef = db.collection('households').doc(householdId).collection('conflicts').doc();
+  const timeoutAt = Timestamp.fromMillis(Date.now() + CONFLICT_TIMEOUT_HORAS * 60 * 60 * 1000);
+
+  await db.runTransaction(async (tx) => {
+    tx.set(conflictRef, {
+      participants: [uid, otherUid],
+      initiatorUid: uid,
+      status: 'awaiting_other_side',
+      timeoutAt,
+      mediation: null,
+      createdAt: FieldValue.serverTimestamp(),
+    });
+    tx.set(conflictRef.collection('sides').doc(uid), {
+      text,
+      submittedAt: FieldValue.serverTimestamp(),
+    });
+  });
+
+  return { ok: true, conflictId: conflictRef.id };
+});
+
+// =============================================================================
+// 6. RESPONDER A UN CONFLICTO
+// =============================================================================
+exports.submitConflictSide = onCall({ region: REGION, secrets: [_anthropicKey] }, async (request) => {
+  if (!request.auth) throw new HttpsError('unauthenticated', 'Debes estar autenticado.');
+  const uid = request.auth.uid;
+  const householdId = request.data?.householdId;
+  const conflictId = request.data?.conflictId;
+  const text = typeof request.data?.text === 'string' ? request.data.text.trim() : '';
+
+  if (!householdId || !conflictId || !text) {
+    throw new HttpsError('invalid-argument', 'Faltan datos.');
+  }
+  if (text.length > 4000) {
+    throw new HttpsError('invalid-argument', 'El texto es demasiado largo.');
+  }
+
+  const conflictRef = db.collection('households').doc(householdId).collection('conflicts').doc(conflictId);
+  const conflictSnap = await conflictRef.get();
+  if (!conflictSnap.exists) throw new HttpsError('not-found', 'El conflicto no existe.');
+  const conflict = conflictSnap.data();
+  if (!(conflict.participants || []).includes(uid)) {
+    throw new HttpsError('permission-denied', 'No formas parte de este conflicto.');
+  }
+  if (conflict.status !== 'awaiting_other_side') {
+    throw new HttpsError('failed-precondition', 'Este conflicto ya no está esperando una respuesta.');
+  }
+
+  await conflictRef.collection('sides').doc(uid).set({
+    text,
+    submittedAt: FieldValue.serverTimestamp(),
+  });
+
+  const sidesSnap = await conflictRef.collection('sides').get();
+  if (sidesSnap.size >= 2) {
+    await conflictRef.update({ status: 'ready_for_mediation' });
+    await ejecutarMediacion(householdId, conflictId);
+  }
+
+  return { ok: true };
+});
