@@ -7,6 +7,7 @@ import '../models/note.dart';
 import '../models/task.dart';
 import '../services/note_service.dart';
 import '../services/task_service.dart';
+import 'weekly_calendar.dart';
 
 class TasksTab extends StatelessWidget {
   const TasksTab({required this.household, super.key});
@@ -21,6 +22,9 @@ class TasksTab extends StatelessWidget {
           child: StreamBuilder<List<ConviveTask>>(
             stream: TaskService.streamTasks(household.id),
             builder: (context, snapshot) {
+              if (!snapshot.hasData) {
+                return const Center(child: CircularProgressIndicator());
+              }
               final tasks = snapshot.data ?? [];
               return ListView(
                 padding: const EdgeInsets.all(16),
@@ -36,6 +40,8 @@ class TasksTab extends StatelessWidget {
                       ),
                     ],
                   ),
+                  WeeklyCalendar(household: household, tasks: tasks),
+                  const SizedBox(height: 20),
                   if (tasks.isEmpty)
                     const Padding(
                       padding: EdgeInsets.symmetric(vertical: 24),

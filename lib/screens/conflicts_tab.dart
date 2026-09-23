@@ -20,6 +20,9 @@ class ConflictsTab extends StatelessWidget {
       body: StreamBuilder<List<Conflict>>(
         stream: ConflictService.streamConflicts(household.id),
         builder: (context, snapshot) {
+          if (!snapshot.hasData) {
+            return const Center(child: CircularProgressIndicator());
+          }
           final conflicts = snapshot.data ?? [];
           if (conflicts.isEmpty) {
             return const Center(child: Text('Sin conflictos abiertos. Bien por vosotros.'));
