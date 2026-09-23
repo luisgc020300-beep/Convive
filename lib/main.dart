@@ -65,13 +65,18 @@ class _ConviveAppState extends State<ConviveApp> {
 
   @override
   Widget build(BuildContext context) {
-    final textTheme = GoogleFonts.interTextTheme();
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'Convive',
       themeMode: ThemeNotifier.instance.mode,
-      theme: ThemeData(brightness: Brightness.light, textTheme: textTheme),
-      darkTheme: ThemeData(brightness: Brightness.dark, textTheme: textTheme),
+      theme: ThemeData(
+        brightness: Brightness.light,
+        textTheme: GoogleFonts.interTextTheme(ThemeData.light().textTheme),
+      ),
+      darkTheme: ThemeData(
+        brightness: Brightness.dark,
+        textTheme: GoogleFonts.interTextTheme(ThemeData.dark().textTheme),
+      ),
       home: StreamBuilder<User?>(
         stream: FirebaseAuth.instance.authStateChanges(),
         builder: (context, snapshot) {
