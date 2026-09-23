@@ -1,4 +1,5 @@
 // lib/screens/new_conflict_screen.dart
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
@@ -38,6 +39,8 @@ class _NewConflictScreenState extends State<NewConflictScreen> {
         text: text,
       );
       if (mounted) Navigator.pop(context);
+    } on FirebaseFunctionsException catch (e) {
+      setState(() => _error = e.message ?? 'No se pudo enviar: ${e.code}');
     } catch (e) {
       setState(() => _error = 'No se pudo enviar: $e');
     } finally {

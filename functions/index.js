@@ -20,6 +20,8 @@ const CONFLICT_TIMEOUT_HORAS = 48;
 const FOLLOWUP_DELAY_DIAS = 3;
 const HISTORIAL_MEDIACION_DIAS = 14;
 const MEDIATION_MODEL = 'claude-sonnet-5';
+const MAX_CONFLICTOS_POR_VENTANA = 5;
+const VENTANA_LIMITE_CONFLICTOS_DIAS = 7;
 
 // Sin 0/O/1/I/L — se confunden fácil al leer un código en voz alta o a mano.
 const JOIN_CODE_CHARS = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
@@ -433,6 +435,18 @@ exports.startConflict = onCall({ region: REGION, secrets: [_anthropicKey] }, asy
   const members = householdSnap.data().members || [];
   if (!members.includes(uid) || !members.includes(otherUid)) {
     throw new HttpsError('permission-denied', 'Ambas personas deben pertenecer al piso.');
+  }
+
+  const desdeLimite = Timestamp.fromMillis(Date.now() - VENTANA_LIMITE_CONFLICTOS_DIAS * 24 * 60 * 60 * 1000);
+  const recientesSnap = await db
+    .collection('households').doc(householdId).collection('conflicts')
+    .where('createdAt', '>=', desdeLimite)
+    .count().get();
+  if (recientesSnap.data().count >= MAX_CONFLICTOS_POR_VENTANA) {
+    throw new HttpsError(
+      'resource-exhausted',
+      `Este piso ya ha abierto ${MAX_CONFLICTOS_POR_VENTANA} conflictos en los últimos ${VENTANA_LIMITE_CONFLICTOS_DIAS} días. Esperad antes de abrir otro.`
+    );
   }
 
   const conflictRef = db.collection('households').doc(householdId).collection('conflicts').doc();
