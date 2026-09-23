@@ -31,20 +31,28 @@ service cloud.firestore {
         allow update, delete: if false; // historial objetivo, append-only
       }
 
-      match /conflicts/{cfid} {
-        allow read: if isAuth() && request.auth.uid in resource.data.participants;
-        allow create, update: if false; // solo vía Cloud Functions
-
-        match /sides/{uid} {
-          allow read: if isAuth() && isOwner(uid);
-          allow write: if false; // solo vía submitConflictSide
-        }
-      }
-
       match /notes/{noteId} {
         allow read, create: if isAuth() && isMember(hid);
         allow update: if false; // append-only en v1, sin edición
         allow delete: if isAuth() && isOwner(resource.data.authorUid);
+      }
+
+      match /messages/{messageId} {
+        allow read, create: if isAuth() && isMember(hid);
+        allow update: if false; // append-only, sin edición en v1
+        allow delete: if isAuth() && isOwner(resource.data.authorUid);
+      }
+
+      match /expenses/{expenseId} {
+        allow read, create: if isAuth() && isMember(hid);
+        allow update: if false; // sin edición en v1 -- se borra y se rehace
+        allow delete: if isAuth() && isOwner(resource.data.paidByUid);
+      }
+
+      match /reminders/{reminderId} {
+        allow read, create: if isAuth() && isMember(hid);
+        allow update: if false;
+        allow delete: if isAuth() && isOwner(resource.data.createdBy);
       }
     }
   }
