@@ -1,5 +1,60 @@
 // lib/models/expense.dart
+import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+
+enum ExpenseCategory { comida, luz, agua, gas, internet, limpieza, casa, ocio, otros }
+
+extension ExpenseCategoryX on ExpenseCategory {
+  String get wireValue => switch (this) {
+        ExpenseCategory.comida => 'comida',
+        ExpenseCategory.luz => 'luz',
+        ExpenseCategory.agua => 'agua',
+        ExpenseCategory.gas => 'gas',
+        ExpenseCategory.internet => 'internet',
+        ExpenseCategory.limpieza => 'limpieza',
+        ExpenseCategory.casa => 'casa',
+        ExpenseCategory.ocio => 'ocio',
+        ExpenseCategory.otros => 'otros',
+      };
+
+  String get label => switch (this) {
+        ExpenseCategory.comida => 'Comida',
+        ExpenseCategory.luz => 'Luz',
+        ExpenseCategory.agua => 'Agua',
+        ExpenseCategory.gas => 'Gas',
+        ExpenseCategory.internet => 'Internet',
+        ExpenseCategory.limpieza => 'Limpieza',
+        ExpenseCategory.casa => 'Casa',
+        ExpenseCategory.ocio => 'Ocio',
+        ExpenseCategory.otros => 'Otros',
+      };
+
+  IconData get icon => switch (this) {
+        ExpenseCategory.comida => Icons.local_grocery_store_outlined,
+        ExpenseCategory.luz => Icons.lightbulb_outline,
+        ExpenseCategory.agua => Icons.water_drop_outlined,
+        ExpenseCategory.gas => Icons.local_fire_department_outlined,
+        ExpenseCategory.internet => Icons.wifi,
+        ExpenseCategory.limpieza => Icons.cleaning_services_outlined,
+        ExpenseCategory.casa => Icons.shopping_bag_outlined,
+        ExpenseCategory.ocio => Icons.celebration_outlined,
+        ExpenseCategory.otros => Icons.more_horiz,
+      };
+
+  // Fallback a "otros" si algún día se quita/renombra una categoría y queda
+  // un gasto antiguo con una clave que ya no existe -- nunca debe reventar.
+  static ExpenseCategory fromWire(String? v) => switch (v) {
+        'comida' => ExpenseCategory.comida,
+        'luz' => ExpenseCategory.luz,
+        'agua' => ExpenseCategory.agua,
+        'gas' => ExpenseCategory.gas,
+        'internet' => ExpenseCategory.internet,
+        'limpieza' => ExpenseCategory.limpieza,
+        'casa' => ExpenseCategory.casa,
+        'ocio' => ExpenseCategory.ocio,
+        _ => ExpenseCategory.otros,
+      };
+}
 
 class Expense {
   final String id;
@@ -7,6 +62,7 @@ class Expense {
   final double amount;
   final String paidByUid;
   final Map<String, double> splits; // uid -> cuánto le toca pagar de este gasto
+  final ExpenseCategory category;
   final DateTime? createdAt;
 
   const Expense({
@@ -15,6 +71,7 @@ class Expense {
     required this.amount,
     required this.paidByUid,
     required this.splits,
+    required this.category,
     this.createdAt,
   });
 
@@ -27,9 +84,24 @@ class Expense {
       amount: (d['amount'] as num?)?.toDouble() ?? 0,
       paidByUid: d['paidByUid'] as String? ?? '',
       splits: rawSplits.map((uid, v) => MapEntry(uid, (v as num).toDouble())),
+      category: ExpenseCategoryX.fromWire(d['category'] as String?),
       createdAt: (d['createdAt'] as Timestamp?)?.toDate(),
     );
   }
+}
+
+/// Total gastado por categoría en un mes concreto (por defecto, el mes
+/// actual) -- puro cálculo sobre lo que ya se sincroniza al cliente, sin
+/// query nueva. Listo para cuando se quiera mostrar un resumen mensual.
+Map<ExpenseCategory, double> gastosPorCategoria(List<Expense> expenses, {DateTime? mes}) {
+  final ref = mes ?? DateTime.now();
+  final totales = <ExpenseCategory, double>{};
+  for (final e in expenses) {
+    final fecha = e.createdAt;
+    if (fecha == null || fecha.year != ref.year || fecha.month != ref.month) continue;
+    totales[e.category] = (totales[e.category] ?? 0) + e.amount;
+  }
+  return totales;
 }
 
 /// Reparte [amount] a partes iguales entre [uids], repartiendo el resto de

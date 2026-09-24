@@ -68,6 +68,7 @@ class PaymentsTab extends StatelessWidget {
     final amountCtrl = TextEditingController();
     String paidByUid = FirebaseAuth.instance.currentUser?.uid ?? household.members.first;
     final incluidos = {...household.members};
+    ExpenseCategory categoria = ExpenseCategory.otros;
 
     await showConviveSheet<void>(
       context: context,
@@ -80,6 +81,31 @@ class PaymentsTab extends StatelessWidget {
             TextField(
               controller: descCtrl,
               decoration: const InputDecoration(hintText: 'Ej: Productos del baño'),
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              height: 34,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                itemCount: ExpenseCategory.values.length,
+                separatorBuilder: (_, _) => const SizedBox(width: 6),
+                itemBuilder: (_, i) {
+                  final cat = ExpenseCategory.values[i];
+                  final seleccionada = cat == categoria;
+                  return ChoiceChip(
+                    selected: seleccionada,
+                    onSelected: (_) => setState(() => categoria = cat),
+                    avatar: Icon(cat.icon, size: 15,
+                        color: seleccionada ? const Color(0xFF0B2116) : ConviveColors.paperMuted),
+                    label: Text(cat.label),
+                    labelStyle: TextStyle(
+                        fontSize: 12.5, color: seleccionada ? const Color(0xFF0B2116) : ConviveColors.paper),
+                    selectedColor: ConviveColors.mint,
+                    backgroundColor: ConviveColors.corkDark,
+                    side: BorderSide.none,
+                  );
+                },
+              ),
             ),
             const SizedBox(height: 12),
             TextField(
@@ -135,6 +161,7 @@ class PaymentsTab extends StatelessWidget {
                   amount: amount,
                   paidByUid: paidByUid,
                   splits: splits,
+                  category: categoria,
                 );
                 if (ctx.mounted) Navigator.pop(ctx);
               },
@@ -296,6 +323,8 @@ class _ExpensesSection extends StatelessWidget {
                       padding: const EdgeInsets.symmetric(vertical: 10),
                       child: Row(
                         children: [
+                          Icon(expenses[i].category.icon, size: 17, color: ConviveColors.paperMuted),
+                          const SizedBox(width: 10),
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,

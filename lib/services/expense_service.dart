@@ -24,6 +24,7 @@ class ExpenseService {
     required double amount,
     required String paidByUid,
     required Map<String, double> splits,
+    ExpenseCategory category = ExpenseCategory.otros,
   }) async {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return;
@@ -36,6 +37,7 @@ class ExpenseService {
       'amount': amount,
       'paidByUid': paidByUid,
       'splits': splits,
+      'category': category.wireValue,
       'createdAt': FieldValue.serverTimestamp(),
     });
   }
