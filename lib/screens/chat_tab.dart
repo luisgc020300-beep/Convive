@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../models/chat_message.dart';
 import '../models/household.dart';
 import '../services/chat_service.dart';
+import '../theme/design_tokens.dart';
 
 class ChatTab extends StatefulWidget {
   const ChatTab({required this.household, super.key});
@@ -67,9 +68,10 @@ class _ChatTabState extends State<ChatTab> {
                       ),
                       decoration: BoxDecoration(
                         color: esMio
-                            ? Theme.of(context).colorScheme.primaryContainer
-                            : Theme.of(context).colorScheme.surfaceContainerHighest,
+                            ? ConviveColors.coral.withValues(alpha: 0.22)
+                            : ConviveColors.cork,
                         borderRadius: BorderRadius.circular(12),
+                        border: esMio ? Border.all(color: ConviveColors.coral.withValues(alpha: 0.5)) : null,
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -78,11 +80,13 @@ class _ChatTabState extends State<ChatTab> {
                           if (!esMio)
                             Text(
                               autor,
-                              style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                                    fontWeight: FontWeight.w700,
-                                  ),
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w700,
+                                fontSize: 11.5,
+                                color: ConviveColors.paperMuted,
+                              ),
                             ),
-                          Text(m.text),
+                          Text(m.text, style: const TextStyle(color: ConviveColors.paper)),
                         ],
                       ),
                     ),
@@ -106,7 +110,7 @@ class _ChatTabState extends State<ChatTab> {
                     textInputAction: TextInputAction.send,
                   ),
                 ),
-                IconButton(icon: const Icon(Icons.send), onPressed: _enviar),
+                IconButton(icon: const Icon(Icons.send, color: ConviveColors.coral), onPressed: _enviar),
               ],
             ),
           ),

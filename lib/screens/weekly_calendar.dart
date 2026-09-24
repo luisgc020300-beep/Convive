@@ -1,16 +1,20 @@
 // lib/screens/weekly_calendar.dart
 //
-// Vista semanal de tareas: una columna por día (lunes a domingo) con lo
-// realmente completado (a partir de `completions`, el mismo dato objetivo
-// que usa el mediador) y, para hoy, lo que queda pendiente. No se proyectan
+// Calendario semanal de tareas: una fila de días tocables (lunes a domingo)
+// más un panel de detalle del día seleccionado. El detalle usa lo realmente
+// completado (`completions`, el mismo dato objetivo que ya usa el resto de
+// la app) y, solo para hoy, lo que queda pendiente. No se proyectan
 // asignaciones futuras: la rotación solo se conoce con certeza cuando el
 // cron o una compleción la hacen avanzar, así que mostrar "quién le tocará
-// el jueves" sería inventar un dato.
+// el jueves" sería inventar un dato -- los días futuros lo dicen así de
+// claro en vez de fingir que lo sabemos.
 import 'package:flutter/material.dart';
 
 import '../models/household.dart';
 import '../models/task.dart';
 import '../services/task_service.dart';
+import '../theme/design_tokens.dart';
+import '../widgets/corkboard.dart';
 
 const _diasSemana = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
 const _meses = [
@@ -18,16 +22,19 @@ const _meses = [
   'jul', 'ago', 'sep', 'oct', 'nov', 'dic',
 ];
 const _memberColors = [
-  Color(0xFF4C6EF5), Color(0xFFE8590C), Color(0xFF2F9E44),
-  Color(0xFFAE3EC9), Color(0xFFE03131), Color(0xFF0C8599),
+  ConviveColors.amber, ConviveColors.coral, ConviveColors.mint,
+  Color(0xFFB08FD8), ConviveColors.rust, Color(0xFF5C9EE8),
 ];
 
 Color _colorForMember(Household household, String? uid) {
-  if (uid == null) return Colors.grey;
+  if (uid == null) return ConviveColors.paperMuted;
   final i = household.members.indexOf(uid);
-  if (i < 0) return Colors.grey;
+  if (i < 0) return ConviveColors.paperMuted;
   return _memberColors[i % _memberColors.length];
 }
+
+String _nameForMember(Household household, String? uid) =>
+    household.memberProfiles[uid]?.displayName ?? 'Alguien';
 
 bool _sameDay(DateTime a, DateTime b) =>
     a.year == b.year && a.month == b.month && a.day == b.day;
@@ -44,157 +51,257 @@ class WeeklyCalendar extends StatefulWidget {
 
 class _WeeklyCalendarState extends State<WeeklyCalendar> {
   int _weekOffset = 0;
+  late DateTime _selectedDay = _todayMidnight();
+
+  static DateTime _todayMidnight() {
+    final n = DateTime.now();
+    return DateTime(n.year, n.month, n.day);
+  }
 
   @override
   Widget build(BuildContext context) {
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
+    final today = _todayMidnight();
     final monday = today.subtract(Duration(days: today.weekday - 1));
     final weekStart = monday.add(Duration(days: 7 * _weekOffset));
     final days = List.generate(7, (i) => weekStart.add(Duration(days: i)));
+    if (!days.any((d) => _sameDay(d, _selectedDay))) {
+      _selectedDay = days.first;
+    }
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    return CorkboardSurface(
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: StreamBuilder<List<TaskCompletion>>(
+          stream: TaskService.streamHistory(widget.household.id, limit: 300),
+          builder: (context, snapshot) {
+            final completions = snapshot.data ?? [];
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.chevron_left, color: ConviveColors.paper),
+                      onPressed: () => setState(() => _weekOffset--),
+                    ),
+                    Text(
+                      _weekOffset == 0
+                          ? 'Esta semana'
+                          : '${days.first.day} ${_meses[days.first.month - 1]} — ${days.last.day} ${_meses[days.last.month - 1]}',
+                      style: Theme.of(context).textTheme.labelLarge,
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.chevron_right, color: ConviveColors.paper),
+                      onPressed: () => setState(() => _weekOffset++),
+                    ),
+                  ],
+                ),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: List.generate(7, (i) {
+                    final day = days[i];
+                    final delDia = completions
+                        .where((c) => c.completedAt != null && _sameDay(c.completedAt!, day))
+                        .toList();
+                    final hecha = delDia.any((c) => c.status == 'done');
+                    final fallada = delDia.any((c) => c.status == 'missed');
+                    return _DayDot(
+                      label: _diasSemana[i],
+                      number: day.day,
+                      esHoy: _sameDay(day, today),
+                      seleccionado: _sameDay(day, _selectedDay),
+                      estado: hecha
+                          ? _DayState.done
+                          : fallada
+                              ? _DayState.missed
+                              : _DayState.empty,
+                      onTap: () => setState(() => _selectedDay = day),
+                    );
+                  }),
+                ),
+                const SizedBox(height: 12),
+                _DayDetail(
+                  household: widget.household,
+                  tasks: widget.tasks,
+                  day: _selectedDay,
+                  today: today,
+                  completions: completions
+                      .where((c) => c.completedAt != null && _sameDay(c.completedAt!, _selectedDay))
+                      .toList(),
+                ),
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
+enum _DayState { done, missed, empty }
+
+class _DayDot extends StatelessWidget {
+  const _DayDot({
+    required this.label,
+    required this.number,
+    required this.esHoy,
+    required this.seleccionado,
+    required this.estado,
+    required this.onTap,
+  });
+
+  final String label;
+  final int number;
+  final bool esHoy;
+  final bool seleccionado;
+  final _DayState estado;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final dotColor = switch (estado) {
+      _DayState.done => ConviveColors.amber,
+      _DayState.missed => ConviveColors.rust,
+      _DayState.empty => ConviveColors.paperMuted.withValues(alpha: 0.4),
+    };
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        width: 38,
+        padding: const EdgeInsets.symmetric(vertical: 6),
+        decoration: BoxDecoration(
+          color: seleccionado ? ConviveColors.amber.withValues(alpha: 0.18) : null,
+          borderRadius: BorderRadius.circular(10),
+          border: seleccionado ? Border.all(color: ConviveColors.amber, width: 1.4) : null,
+        ),
+        child: Column(
           children: [
-            IconButton(
-              icon: const Icon(Icons.chevron_left),
-              onPressed: () => setState(() => _weekOffset--),
-            ),
             Text(
-              _weekOffset == 0
-                  ? 'Esta semana'
-                  : 'Semana del ${days.first.day} ${_meses[days.first.month - 1]}',
-              style: Theme.of(context).textTheme.titleSmall,
+              label,
+              style: TextStyle(
+                fontSize: 11,
+                color: esHoy ? ConviveColors.amber : ConviveColors.paperMuted,
+                fontWeight: FontWeight.w700,
+              ),
             ),
-            IconButton(
-              icon: const Icon(Icons.chevron_right),
-              onPressed: () => setState(() => _weekOffset++),
+            const SizedBox(height: 2),
+            Text(
+              '$number',
+              style: TextStyle(
+                fontSize: 15,
+                color: ConviveColors.paper,
+                fontWeight: esHoy ? FontWeight.w800 : FontWeight.w500,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Container(
+              width: 6,
+              height: 6,
+              decoration: BoxDecoration(color: dotColor, shape: BoxShape.circle),
             ),
           ],
         ),
-        SizedBox(
-          height: 220,
-          child: StreamBuilder<List<TaskCompletion>>(
-            stream: TaskService.streamHistory(widget.household.id, limit: 300),
-            builder: (context, snapshot) {
-              final completions = snapshot.data ?? [];
-              return ListView.builder(
-                scrollDirection: Axis.horizontal,
-                itemCount: 7,
-                itemBuilder: (context, i) {
-                  final day = days[i];
-                  final esHoy = _sameDay(day, today);
-                  final delDia = completions
-                      .where((c) => c.completedAt != null && _sameDay(c.completedAt!, day))
-                      .toList();
-                  final pendientesHoy = esHoy
-                      ? widget.tasks.where((t) {
-                          final start = t.currentPeriodStart;
-                          final end = t.currentPeriodEnd;
-                          if (start == null || end == null) return false;
-                          final cubreHoy = !start.isAfter(now) && end.isAfter(now);
-                          final yaHecha = delDia.any((c) => c.taskId == t.id);
-                          return cubreHoy && !yaHecha;
-                        }).toList()
-                      : const <ConviveTask>[];
+      ),
+    );
+  }
+}
 
-                  return Container(
-                    width: 108,
-                    margin: const EdgeInsets.only(right: 6),
-                    padding: const EdgeInsets.all(6),
-                    decoration: BoxDecoration(
-                      border: Border.all(
-                        color: esHoy
-                            ? Theme.of(context).colorScheme.primary
-                            : Theme.of(context).dividerColor,
-                        width: esHoy ? 1.5 : 1,
-                      ),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          '${_diasSemana[i]} ${day.day}',
-                          style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                                fontWeight: esHoy ? FontWeight.w700 : FontWeight.w500,
-                              ),
-                        ),
-                        const SizedBox(height: 4),
-                        Expanded(
-                          child: SingleChildScrollView(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                ...delDia.map((c) => _Chip(
-                                      texto: c.taskTitle,
-                                      color: _colorForMember(widget.household, c.completedBy),
-                                      icono: c.status == 'done'
-                                          ? Icons.check_circle
-                                          : Icons.cancel,
-                                    )),
-                                ...pendientesHoy.map((t) => _Chip(
-                                      texto: t.title,
-                                      color: _colorForMember(widget.household, t.currentAssigneeUid),
-                                      icono: Icons.schedule,
-                                      outline: true,
-                                    )),
-                                if (delDia.isEmpty && pendientesHoy.isEmpty)
-                                  Text(
-                                    '—',
-                                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                          color: Theme.of(context).disabledColor,
-                                        ),
-                                  ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-                },
-              );
-            },
-          ),
+class _DayDetail extends StatelessWidget {
+  const _DayDetail({
+    required this.household,
+    required this.tasks,
+    required this.day,
+    required this.today,
+    required this.completions,
+  });
+
+  final Household household;
+  final List<ConviveTask> tasks;
+  final DateTime day;
+  final DateTime today;
+  final List<TaskCompletion> completions;
+
+  @override
+  Widget build(BuildContext context) {
+    final esHoy = _sameDay(day, today);
+    final esFuturo = day.isAfter(today);
+    final pendientes = esHoy
+        ? tasks.where((t) {
+            final start = t.currentPeriodStart;
+            final end = t.currentPeriodEnd;
+            if (start == null || end == null) return false;
+            final cubreHoy = !start.isAfter(DateTime.now()) && end.isAfter(DateTime.now());
+            final yaHecha = completions.any((c) => c.taskId == t.id);
+            return cubreHoy && !yaHecha;
+          }).toList()
+        : const <ConviveTask>[];
+
+    if (completions.isEmpty && pendientes.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Text(
+          esFuturo
+              ? 'Todavía no lo sabemos -- se decide cuando llegue el día.'
+              : 'Sin registros ese día.',
+          style: TextStyle(color: ConviveColors.paperMuted.withValues(alpha: 0.8), fontSize: 13),
         ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        ...completions.map((c) => _DetailRow(
+              texto: c.taskTitle,
+              persona: _nameForMember(household, c.completedBy ?? c.assigneeUid),
+              color: _colorForMember(household, c.completedBy ?? c.assigneeUid),
+              icono: c.status == 'done' ? Icons.check_circle : Icons.cancel,
+            )),
+        ...pendientes.map((t) => _DetailRow(
+              texto: t.title,
+              persona: _nameForMember(household, t.currentAssigneeUid),
+              color: _colorForMember(household, t.currentAssigneeUid),
+              icono: Icons.schedule,
+              pendiente: true,
+            )),
       ],
     );
   }
 }
 
-class _Chip extends StatelessWidget {
-  const _Chip({required this.texto, required this.color, required this.icono, this.outline = false});
+class _DetailRow extends StatelessWidget {
+  const _DetailRow({
+    required this.texto,
+    required this.persona,
+    required this.color,
+    required this.icono,
+    this.pendiente = false,
+  });
 
   final String texto;
+  final String persona;
   final Color color;
   final IconData icono;
-  final bool outline;
+  final bool pendiente;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 3),
-      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-      decoration: BoxDecoration(
-        color: outline ? Colors.transparent : color.withValues(alpha: 0.15),
-        border: outline ? Border.all(color: color.withValues(alpha: 0.6)) : null,
-        borderRadius: BorderRadius.circular(4),
-      ),
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 3),
       child: Row(
-        mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icono, size: 10, color: color),
-          const SizedBox(width: 3),
-          Flexible(
+          Icon(icono, size: 15, color: pendiente ? color.withValues(alpha: 0.7) : color),
+          const SizedBox(width: 8),
+          Expanded(
             child: Text(
-              texto,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.labelSmall?.copyWith(fontSize: 9.5),
+              '$texto — $persona',
+              style: TextStyle(
+                color: ConviveColors.paper,
+                fontSize: 13,
+                fontStyle: pendiente ? FontStyle.italic : FontStyle.normal,
+              ),
             ),
           ),
         ],

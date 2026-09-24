@@ -7,6 +7,9 @@ import '../models/note.dart';
 import '../models/task.dart';
 import '../services/note_service.dart';
 import '../services/task_service.dart';
+import '../theme/design_tokens.dart';
+import '../widgets/convive_sheet.dart';
+import '../widgets/corkboard.dart';
 import 'weekly_calendar.dart';
 
 class TasksTab extends StatelessWidget {
@@ -35,11 +38,12 @@ class TasksTab extends StatelessWidget {
                       Text('Tareas', style: Theme.of(context).textTheme.titleLarge),
                       TextButton.icon(
                         onPressed: () => _mostrarNuevaTarea(context, household),
-                        icon: const Icon(Icons.add),
-                        label: const Text('Nueva'),
+                        icon: const Icon(Icons.add, color: ConviveColors.amber),
+                        label: const Text('Nueva', style: TextStyle(color: ConviveColors.amber)),
                       ),
                     ],
                   ),
+                  const SizedBox(height: 8),
                   WeeklyCalendar(household: household, tasks: tasks),
                   const SizedBox(height: 20),
                   if (tasks.isEmpty)
@@ -49,10 +53,10 @@ class TasksTab extends StatelessWidget {
                     )
                   else
                     ...tasks.map((t) => _TaskCard(household: household, task: t)),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 28),
                   Text('Notas del piso', style: Theme.of(context).textTheme.titleLarge),
                   const SizedBox(height: 8),
-                  _NotesFeed(household: household),
+                  _NotesBoard(household: household),
                 ],
               );
             },
@@ -67,62 +71,54 @@ class TasksTab extends StatelessWidget {
     RecurrenceType tipo = RecurrenceType.weekly;
     final intervalCtrl = TextEditingController(text: '3');
 
-    await showDialog<void>(
+    await showConviveSheet<void>(
       context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setState) => AlertDialog(
-          title: const Text('Nueva tarea'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              TextField(
-                controller: tituloCtrl,
-                decoration: const InputDecoration(labelText: 'Ej: Fregar la cocina'),
-              ),
-              const SizedBox(height: 12),
-              DropdownButton<RecurrenceType>(
-                value: tipo,
-                isExpanded: true,
-                items: RecurrenceType.values
-                    .map((t) => DropdownMenuItem(value: t, child: Text(t.label)))
-                    .toList(),
-                onChanged: (v) => setState(() => tipo = v ?? tipo),
-              ),
-              if (tipo == RecurrenceType.everyNDays) ...[
-                const SizedBox(height: 8),
-                TextField(
-                  controller: intervalCtrl,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(labelText: 'Cada cuántos días'),
-                ),
-              ],
-            ],
+      title: 'Nueva tarea',
+      builder: (ctx, setState) => Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          TextField(
+            controller: tituloCtrl,
+            decoration: const InputDecoration(hintText: 'Ej: Fregar la cocina'),
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('Cancelar'),
-            ),
-            FilledButton(
-              onPressed: () async {
-                final titulo = tituloCtrl.text.trim();
-                if (titulo.isEmpty) return;
-                await TaskService.createTask(
-                  householdId: household.id,
-                  title: titulo,
-                  recurrenceType: tipo,
-                  intervalDays: tipo == RecurrenceType.everyNDays
-                      ? int.tryParse(intervalCtrl.text)
-                      : null,
-                  rotationOrder: household.members,
-                );
-                if (ctx.mounted) Navigator.pop(ctx);
-              },
-              child: const Text('Crear'),
+          const SizedBox(height: 12),
+          DropdownButtonFormField<RecurrenceType>(
+            initialValue: tipo,
+            decoration: const InputDecoration(),
+            dropdownColor: ConviveColors.cork,
+            items: RecurrenceType.values
+                .map((t) => DropdownMenuItem(value: t, child: Text(t.label)))
+                .toList(),
+            onChanged: (v) => setState(() => tipo = v ?? tipo),
+          ),
+          if (tipo == RecurrenceType.everyNDays) ...[
+            const SizedBox(height: 12),
+            TextField(
+              controller: intervalCtrl,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(hintText: 'Cada cuántos días'),
             ),
           ],
-        ),
+          const SizedBox(height: 20),
+          FilledButton(
+            onPressed: () async {
+              final titulo = tituloCtrl.text.trim();
+              if (titulo.isEmpty) return;
+              await TaskService.createTask(
+                householdId: household.id,
+                title: titulo,
+                recurrenceType: tipo,
+                intervalDays: tipo == RecurrenceType.everyNDays
+                    ? int.tryParse(intervalCtrl.text)
+                    : null,
+                rotationOrder: household.members,
+              );
+              if (ctx.mounted) Navigator.pop(ctx);
+            },
+            child: const Text('Crear'),
+          ),
+        ],
       ),
     );
   }
@@ -140,100 +136,135 @@ class _TaskCard extends StatelessWidget {
         ?? 'Sin asignar';
     final esMiTurno =
         task.currentAssigneeUid == FirebaseAuth.instance.currentUser?.uid;
-    return Card(
+    return Container(
       margin: const EdgeInsets.only(bottom: 8),
-      child: ListTile(
-        title: Text(task.title),
-        subtitle: Text('Le toca a $asignado'),
-        trailing: FilledButton.tonal(
-          onPressed: () => TaskService.completeTask(
-            householdId: household.id,
-            taskId: task.id,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: ConviveColors.cork,
+        borderRadius: BorderRadius.circular(12),
+        border: Border(left: BorderSide(color: ConviveColors.amber.withValues(alpha: 0.8), width: 3)),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(task.title, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+                const SizedBox(height: 2),
+                Text('Le toca a $asignado',
+                    style: TextStyle(color: ConviveColors.paperMuted, fontSize: 12)),
+              ],
+            ),
           ),
-          child: Text(esMiTurno ? 'Hecho' : 'Marcar hecho'),
-        ),
+          FilledButton.tonal(
+            style: FilledButton.styleFrom(
+              backgroundColor: esMiTurno
+                  ? ConviveColors.amber.withValues(alpha: 0.22)
+                  : ConviveColors.corkDark,
+              foregroundColor: esMiTurno ? ConviveColors.amber : ConviveColors.paperMuted,
+            ),
+            onPressed: () => TaskService.completeTask(
+              householdId: household.id,
+              taskId: task.id,
+            ),
+            child: Text(esMiTurno ? 'Hecho' : 'Marcar hecho'),
+          ),
+        ],
       ),
     );
   }
 }
 
-class _NotesFeed extends StatefulWidget {
-  const _NotesFeed({required this.household});
+class _NotesBoard extends StatelessWidget {
+  const _NotesBoard({required this.household});
 
   final Household household;
 
   @override
-  State<_NotesFeed> createState() => _NotesFeedState();
-}
-
-class _NotesFeedState extends State<_NotesFeed> {
-  final _noteCtrl = TextEditingController();
-
-  @override
-  void dispose() {
-    _noteCtrl.dispose();
-    super.dispose();
-  }
-
-  Future<void> _enviar() async {
-    final text = _noteCtrl.text.trim();
-    if (text.isEmpty) return;
-    _noteCtrl.clear();
-    await NoteService.postNote(widget.household.id, text);
-  }
-
-  @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Row(
+    return CorkboardSurface(
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Expanded(
-              child: TextField(
-                controller: _noteCtrl,
-                decoration: const InputDecoration(
-                  hintText: 'Ej: Ha venido el casero...',
-                ),
-                onSubmitted: (_) => _enviar(),
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton.icon(
+                onPressed: () => _mostrarNuevaNota(context, household),
+                icon: const Icon(Icons.push_pin_outlined, color: ConviveColors.paper, size: 16),
+                label: const Text('Clavar nota', style: TextStyle(color: ConviveColors.paper)),
               ),
             ),
-            IconButton(icon: const Icon(Icons.send), onPressed: _enviar),
+            StreamBuilder<List<ConviveNote>>(
+              stream: NoteService.streamNotes(household.id),
+              builder: (context, snapshot) {
+                final notes = snapshot.data ?? [];
+                if (notes.isEmpty) {
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 20),
+                    child: Center(
+                      child: Text(
+                        'El corcho está vacío. Clava la primera nota.',
+                        style: ConviveText.handwritten(fontSize: 16, color: ConviveColors.paperMuted),
+                      ),
+                    ),
+                  );
+                }
+                final myUid = FirebaseAuth.instance.currentUser?.uid;
+                return Wrap(
+                  spacing: 14,
+                  runSpacing: 18,
+                  children: notes.asMap().entries.map((entry) {
+                    final n = entry.value;
+                    final autor = household.memberProfiles[n.authorUid]?.displayName ?? 'Alguien';
+                    return PostItNote(
+                      text: n.text,
+                      author: autor,
+                      color: ConviveColors.postIts[entry.key % ConviveColors.postIts.length],
+                      seed: n.id.hashCode,
+                      onDelete: n.authorUid == myUid
+                          ? () => NoteService.deleteNote(household.id, n.id)
+                          : null,
+                    );
+                  }).toList(),
+                );
+              },
+            ),
           ],
         ),
-        const SizedBox(height: 8),
-        StreamBuilder<List<ConviveNote>>(
-          stream: NoteService.streamNotes(widget.household.id),
-          builder: (context, snapshot) {
-            final notes = snapshot.data ?? [];
-            if (notes.isEmpty) {
-              return const Padding(
-                padding: EdgeInsets.symmetric(vertical: 12),
-                child: Text('Sin notas todavía.'),
-              );
-            }
-            return Column(
-              children: notes.map((n) {
-                final autor = widget.household.memberProfiles[n.authorUid]
-                        ?.displayName ??
-                    'Alguien';
-                return ListTile(
-                  dense: true,
-                  leading: const Icon(Icons.sticky_note_2_outlined),
-                  title: Text(n.text),
-                  subtitle: Text(autor),
-                  trailing: n.authorUid == FirebaseAuth.instance.currentUser?.uid
-                      ? IconButton(
-                          icon: const Icon(Icons.delete_outline, size: 18),
-                          onPressed: () =>
-                              NoteService.deleteNote(widget.household.id, n.id),
-                        )
-                      : null,
-                );
-              }).toList(),
-            );
-          },
-        ),
-      ],
+      ),
+    );
+  }
+
+  Future<void> _mostrarNuevaNota(BuildContext context, Household household) async {
+    final ctrl = TextEditingController();
+    await showConviveSheet<void>(
+      context: context,
+      title: 'Clavar una nota',
+      builder: (ctx, setState) => Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          TextField(
+            controller: ctrl,
+            autofocus: true,
+            maxLines: 3,
+            decoration: const InputDecoration(hintText: 'Ej: Ha venido el casero...'),
+          ),
+          const SizedBox(height: 16),
+          FilledButton(
+            onPressed: () async {
+              final text = ctrl.text.trim();
+              if (text.isEmpty) return;
+              await NoteService.postNote(household.id, text);
+              if (ctx.mounted) Navigator.pop(ctx);
+            },
+            child: const Text('Clavar'),
+          ),
+        ],
+      ),
     );
   }
 }

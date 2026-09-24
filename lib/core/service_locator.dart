@@ -11,13 +11,10 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:get_it/get_it.dart';
 
 import '../services/connectivity_service.dart';
-import '../theme/theme_notifier.dart';
 
 final GetIt sl = GetIt.instance;
 
 Future<void> setupLocator() async {
-  sl.registerSingleton<ThemeNotifier>(ThemeNotifier.instance);
-
   final connectivity = ConnectivityService.instance;
   await connectivity.init();
   sl.registerSingleton<ConnectivityService>(connectivity);
