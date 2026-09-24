@@ -1,12 +1,13 @@
 // lib/screens/household_home_screen.dart
 //
 // Pestañas: Tareas (+ calendario semanal y notas), Chat, Pagos (gastos
-// comunes + recordatorios) y Piso.
+// comunes + recordatorios) y Piso. Navegación abajo, como la mayoría de apps.
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../models/household.dart';
 import '../services/household_service.dart';
+import '../theme/design_tokens.dart';
 import 'chat_tab.dart';
 import 'payments_tab.dart';
 import 'tasks_tab.dart';
@@ -24,34 +25,55 @@ class HouseholdHomeScreen extends StatelessWidget {
         if (!snapshot.hasData) {
           return const Scaffold(body: Center(child: CircularProgressIndicator()));
         }
-        final household = snapshot.data!;
-        return DefaultTabController(
-          length: 4,
-          child: Scaffold(
-            appBar: AppBar(
-              title: Text(household.name),
-              actions: [
-                IconButton(
-                  icon: const Icon(Icons.logout),
-                  onPressed: () => FirebaseAuth.instance.signOut(),
-                ),
-              ],
-              bottom: const TabBar(tabs: [
-                Tab(text: 'Tareas'),
-                Tab(text: 'Chat'),
-                Tab(text: 'Pagos'),
-                Tab(text: 'Piso'),
-              ]),
-            ),
-            body: TabBarView(children: [
-              TasksTab(household: household),
-              ChatTab(household: household),
-              PaymentsTab(household: household),
-              _PisoTab(household: household),
-            ]),
-          ),
-        );
+        return _HouseholdShell(household: snapshot.data!);
       },
+    );
+  }
+}
+
+class _HouseholdShell extends StatefulWidget {
+  const _HouseholdShell({required this.household});
+
+  final Household household;
+
+  @override
+  State<_HouseholdShell> createState() => _HouseholdShellState();
+}
+
+class _HouseholdShellState extends State<_HouseholdShell> {
+  int _index = 0;
+
+  @override
+  Widget build(BuildContext context) {
+    final household = widget.household;
+    final tabs = [
+      TasksTab(household: household),
+      ChatTab(household: household),
+      PaymentsTab(household: household),
+      _PisoTab(household: household),
+    ];
+    return Scaffold(
+      appBar: AppBar(
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.logout),
+            onPressed: () => FirebaseAuth.instance.signOut(),
+          ),
+        ],
+      ),
+      body: IndexedStack(index: _index, children: tabs),
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: _index,
+        onDestinationSelected: (i) => setState(() => _index = i),
+        backgroundColor: ConviveColors.wall,
+        indicatorColor: ConviveColors.amber.withValues(alpha: 0.18),
+        destinations: const [
+          NavigationDestination(icon: Icon(Icons.checklist_rounded), label: 'Tareas'),
+          NavigationDestination(icon: Icon(Icons.forum_outlined), label: 'Chat'),
+          NavigationDestination(icon: Icon(Icons.payments_outlined), label: 'Pagos'),
+          NavigationDestination(icon: Icon(Icons.home_outlined), label: 'Piso'),
+        ],
+      ),
     );
   }
 }

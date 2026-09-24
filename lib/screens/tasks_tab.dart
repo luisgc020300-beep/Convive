@@ -29,30 +29,28 @@ class TasksTab extends StatelessWidget {
                 return const Center(child: CircularProgressIndicator());
               }
               final tasks = snapshot.data ?? [];
+              final hoy = DateTime.now();
+              final tareasDeHoy = tasks.where((t) => t.ocurreEnDia(hoy)).toList();
               return ListView(
                 padding: const EdgeInsets.all(16),
                 children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text('Tareas', style: Theme.of(context).textTheme.titleLarge),
-                      TextButton.icon(
-                        onPressed: () => _mostrarNuevaTarea(context, household),
-                        icon: const Icon(Icons.add, color: ConviveColors.amber),
-                        label: const Text('Nueva', style: TextStyle(color: ConviveColors.amber)),
-                      ),
-                    ],
-                  ),
+                  Text('Tareas', style: Theme.of(context).textTheme.titleLarge),
                   const SizedBox(height: 8),
-                  WeeklyCalendar(household: household, tasks: tasks),
+                  WeeklyCalendar(
+                    household: household,
+                    tasks: tasks,
+                    onAddTask: (day) => _mostrarNuevaTarea(context, household, day),
+                  ),
                   const SizedBox(height: 20),
-                  if (tasks.isEmpty)
+                  Text('Hoy', style: Theme.of(context).textTheme.labelLarge?.copyWith(color: ConviveColors.paperMuted)),
+                  const SizedBox(height: 6),
+                  if (tareasDeHoy.isEmpty)
                     const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 24),
-                      child: Text('Todavía no hay tareas. Añade la primera.'),
+                      padding: EdgeInsets.symmetric(vertical: 12),
+                      child: Text('Nada tuyo para hoy.'),
                     )
                   else
-                    ...tasks.map((t) => _TaskCard(household: household, task: t)),
+                    ...tareasDeHoy.map((t) => _TaskCard(household: household, task: t)),
                   const SizedBox(height: 28),
                   Text('Notas del piso', style: Theme.of(context).textTheme.titleLarge),
                   const SizedBox(height: 8),
@@ -66,14 +64,19 @@ class TasksTab extends StatelessWidget {
     );
   }
 
-  Future<void> _mostrarNuevaTarea(BuildContext context, Household household) async {
+  static const _diasSemanaNombres = [
+    'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo',
+  ];
+
+  Future<void> _mostrarNuevaTarea(BuildContext context, Household household, DateTime anchorDate) async {
     final tituloCtrl = TextEditingController();
     RecurrenceType tipo = RecurrenceType.weekly;
     final intervalCtrl = TextEditingController(text: '3');
+    int diaSemana = anchorDate.weekday;
 
     await showConviveSheet<void>(
       context: context,
-      title: 'Nueva tarea',
+      title: 'Nueva tarea — ${_diasSemanaNombres[anchorDate.weekday - 1]} ${anchorDate.day}',
       builder: (ctx, setState) => Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -92,6 +95,18 @@ class TasksTab extends StatelessWidget {
                 .toList(),
             onChanged: (v) => setState(() => tipo = v ?? tipo),
           ),
+          if (tipo == RecurrenceType.weekly) ...[
+            const SizedBox(height: 12),
+            DropdownButtonFormField<int>(
+              initialValue: diaSemana,
+              decoration: const InputDecoration(labelText: 'Día de la semana'),
+              dropdownColor: ConviveColors.cork,
+              items: List.generate(7, (i) => i + 1)
+                  .map((d) => DropdownMenuItem(value: d, child: Text(_diasSemanaNombres[d - 1])))
+                  .toList(),
+              onChanged: (v) => setState(() => diaSemana = v ?? diaSemana),
+            ),
+          ],
           if (tipo == RecurrenceType.everyNDays) ...[
             const SizedBox(height: 12),
             TextField(
@@ -109,6 +124,8 @@ class TasksTab extends StatelessWidget {
                 householdId: household.id,
                 title: titulo,
                 recurrenceType: tipo,
+                anchorDate: anchorDate,
+                dayOfWeek: tipo == RecurrenceType.weekly ? diaSemana : null,
                 intervalDays: tipo == RecurrenceType.everyNDays
                     ? int.tryParse(intervalCtrl.text)
                     : null,
@@ -132,10 +149,9 @@ class _TaskCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final asignado = household.memberProfiles[task.currentAssigneeUid]?.displayName
-        ?? 'Sin asignar';
-    final esMiTurno =
-        task.currentAssigneeUid == FirebaseAuth.instance.currentUser?.uid;
+    final asignadoUid = task.asignadoEnDia(DateTime.now());
+    final asignado = household.memberProfiles[asignadoUid]?.displayName ?? 'Sin asignar';
+    final esMiTurno = asignadoUid == FirebaseAuth.instance.currentUser?.uid;
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),

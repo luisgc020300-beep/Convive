@@ -22,30 +22,34 @@ class TaskService {
     String householdId, {
     int limit = 50,
   }) {
+    // Se ordena por occurrenceDate (qué día tocaba), no por completedAt --
+    // ese campo es null en los registros "missed", así que ordenar por él
+    // los empujaría siempre al final o los dejaría fuera del limit.
     return _db
         .collection('households')
         .doc(householdId)
         .collection('completions')
-        .orderBy('completedAt', descending: true)
+        .orderBy('occurrenceDate', descending: true)
         .limit(limit)
         .snapshots()
         .map((snap) => snap.docs.map(TaskCompletion.fromDoc).toList());
   }
 
-  /// Crea una tarea recurrente. La rotación empieza por el primer miembro
-  /// de [rotationOrder] — normalmente los miembros actuales del piso.
+  /// Crea una tarea recurrente anclada a [anchorDate] -- normalmente el día
+  /// que el usuario tenía seleccionado en el calendario. La rotación
+  /// empieza por el primer miembro de [rotationOrder].
   static Future<void> createTask({
     required String householdId,
     required String title,
     required RecurrenceType recurrenceType,
+    required DateTime anchorDate,
     int? intervalDays,
+    int? dayOfWeek,
     required List<String> rotationOrder,
   }) async {
     if (rotationOrder.isEmpty) {
       throw ArgumentError('Un piso sin miembros no puede tener tareas.');
     }
-    final ahora = DateTime.now();
-    final duracion = recurrenceType.periodDuration(intervalDays: intervalDays);
     await _db
         .collection('households')
         .doc(householdId)
@@ -55,12 +59,10 @@ class TaskService {
       'recurrence': {
         'type': recurrenceType.wireValue,
         'intervalDays': ?intervalDays,
+        'dayOfWeek': ?dayOfWeek,
       },
+      'anchorDate': Timestamp.fromDate(anchorDate),
       'rotationOrder': rotationOrder,
-      'rotationIndex': 0,
-      'currentAssigneeUid': rotationOrder.first,
-      'currentPeriodStart': Timestamp.fromDate(ahora),
-      'currentPeriodEnd': Timestamp.fromDate(ahora.add(duracion)),
       'active': true,
       'createdAt': FieldValue.serverTimestamp(),
     });

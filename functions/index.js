@@ -119,54 +119,80 @@ exports.joinHousehold = onCall({ region: REGION }, async (request) => {
 });
 
 // =============================================================================
-// TAREAS — utilidades de periodo/rotación compartidas
+// TAREAS — aritmética de ancla compartida (mismas reglas que
+// ConviveTask.ocurreEnDia/asignadoEnDia en lib/models/task.dart -- si se
+// cambia una, hay que cambiar la otra)
 // =============================================================================
 
-// Misma lógica en ms para las tres recurrencias — nada de calendario "real"
-// (meses de distinta duración, etc.), un piso no lo necesita.
-function duracionPeriodoMs(recurrence) {
-  const DIA_MS = 24 * 60 * 60 * 1000;
-  switch (recurrence?.type) {
-    case 'daily': return DIA_MS;
-    case 'weekly': return 7 * DIA_MS;
+const DIA_MS = 24 * 60 * 60 * 1000;
+
+function medianocheUTC(ms) {
+  const d = new Date(ms);
+  d.setUTCHours(0, 0, 0, 0);
+  return d.getTime();
+}
+
+// 1=lunes .. 7=domingo, igual que DateTime.weekday en Dart (Date.getUTCDay()
+// de JS usa 0=domingo, hay que convertir).
+function diaSemanaISO(ms) {
+  const dow = new Date(ms).getUTCDay();
+  return dow === 0 ? 7 : dow;
+}
+
+function ocurreEnDia(task, diaMs) {
+  const anclaMs = medianocheUTC(task.anchorDate.toMillis());
+  const dMs = medianocheUTC(diaMs);
+  if (dMs < anclaMs) return false;
+  const dias = Math.round((dMs - anclaMs) / DIA_MS);
+  switch (task.recurrence?.type) {
+    case 'weekly':
+      return diaSemanaISO(dMs) === (task.recurrence.dayOfWeek || diaSemanaISO(anclaMs));
     case 'every_n_days': {
-      const dias = Number(recurrence.intervalDays) || 1;
-      return Math.max(1, dias) * DIA_MS;
+      const n = Math.max(1, Math.min(365, Number(task.recurrence.intervalDays) || 1));
+      return dias % n === 0;
     }
-    default: return DIA_MS;
+    default: // daily
+      return true;
   }
 }
 
-// Clave de día en UTC -- mismo criterio horario que ya usan los crons de
-// este archivo (04:00 UTC), para no mezclar dos formas distintas de
-// decidir "qué día es hoy" dentro del mismo proyecto.
+function asignadoEnDia(task, diaMs) {
+  const orden = task.rotationOrder || [];
+  if (orden.length === 0 || !ocurreEnDia(task, diaMs)) return null;
+  const anclaMs = medianocheUTC(task.anchorDate.toMillis());
+  const dMs = medianocheUTC(diaMs);
+  const dias = Math.round((dMs - anclaMs) / DIA_MS);
+  let ocurrencia;
+  switch (task.recurrence?.type) {
+    case 'weekly':
+      ocurrencia = Math.round(dias / 7);
+      break;
+    case 'every_n_days': {
+      const n = Math.max(1, Math.min(365, Number(task.recurrence.intervalDays) || 1));
+      ocurrencia = Math.floor(dias / n);
+      break;
+    }
+    default:
+      ocurrencia = dias;
+  }
+  return orden[ocurrencia % orden.length];
+}
+
+// Clave de día en UTC -- mismo criterio horario que usa el cron (04:00 UTC),
+// para no mezclar dos formas distintas de decidir "qué día es hoy".
 function claveDia(ms) {
   const d = new Date(ms);
   return `${d.getUTCFullYear()}-${d.getUTCMonth() + 1}-${d.getUTCDate()}`;
 }
 
-// Avanza la rotación de una tarea una posición y calcula el nuevo periodo.
-// Devuelve el objeto de campos a escribir sobre el doc de la tarea.
-function siguienteEstadoRotacion(taskData, desdeMs) {
-  const orden = taskData.rotationOrder || [];
-  const actual = typeof taskData.rotationIndex === 'number' ? taskData.rotationIndex : 0;
-  const nuevoIndex = orden.length > 0 ? (actual + 1) % orden.length : 0;
-  const nuevoAsignado = orden.length > 0 ? orden[nuevoIndex] : null;
-  const duracion = duracionPeriodoMs(taskData.recurrence);
-  return {
-    rotationIndex: nuevoIndex,
-    currentAssigneeUid: nuevoAsignado,
-    currentPeriodStart: Timestamp.fromMillis(desdeMs),
-    currentPeriodEnd: Timestamp.fromMillis(desdeMs + duracion),
-  };
-}
-
 // =============================================================================
 // 3. COMPLETAR TAREA
 // =============================================================================
-// Transaccional: escribe el registro de historial Y avanza la rotación a la
-// vez — si dos compañeros le dan a "hecho" casi al mismo tiempo, solo uno
-// de los dos debe contar y avanzar la rotación, nunca los dos.
+// Ya no "avanza una rotación" -- la asignación es pura aritmética sobre la
+// fecha ancla (ver arriba), así que completar solo dos cosas: registra el
+// historial de hoy y anota que hoy ya se completó, para que no se pueda
+// repetir. Transaccional para que dos toques casi simultáneos no cuenten
+// los dos.
 exports.completeTask = onCall({ region: REGION }, async (request) => {
   if (!request.auth) {
     throw new HttpsError('unauthenticated', 'Debes estar autenticado.');
@@ -192,28 +218,29 @@ exports.completeTask = onCall({ region: REGION }, async (request) => {
 
     const ahoraMs = Date.now();
     if (task.lastCompletionDay === claveDia(ahoraMs)) {
-      // Sin este freno, cada toque de "Hecho" crea una compleción nueva y
-      // avanza la rotación sin límite -- se puede completar la misma tarea
-      // decenas de veces seguidas en segundos.
+      // Sin este freno, cada toque de "Hecho" crea una compleción nueva sin
+      // límite -- se puede completar la misma tarea decenas de veces
+      // seguidas en segundos.
       throw new HttpsError('failed-precondition', 'Esta tarea ya se ha marcado como hecha hoy.');
+    }
+    if (task.anchorDate && !ocurreEnDia(task, ahoraMs)) {
+      // Defensivo -- la UI no debería dejar llegar aquí si hoy no le toca,
+      // pero si pasa (p.ej. dos pestañas abiertas) no debe colar un dato falso.
+      throw new HttpsError('failed-precondition', 'Esta tarea no toca hoy.');
     }
 
     const completionRef = householdRef.collection('completions').doc();
     tx.set(completionRef, {
       taskId,
       taskTitle: task.title || '',
-      assigneeUid: task.currentAssigneeUid || null,
-      periodStart: task.currentPeriodStart || null,
-      periodEnd: task.currentPeriodEnd || null,
+      assigneeUid: task.anchorDate ? asignadoEnDia(task, ahoraMs) : (task.currentAssigneeUid || null),
+      occurrenceDate: Timestamp.fromMillis(medianocheUTC(ahoraMs)),
       status: 'done',
       completedAt: FieldValue.serverTimestamp(),
       completedBy: uid,
     });
 
-    tx.update(taskRef, {
-      ...siguienteEstadoRotacion(task, ahoraMs),
-      lastCompletionDay: claveDia(ahoraMs),
-    });
+    tx.update(taskRef, { lastCompletionDay: claveDia(ahoraMs) });
     return { completionId: completionRef.id };
   });
 
@@ -221,15 +248,17 @@ exports.completeTask = onCall({ region: REGION }, async (request) => {
 });
 
 // =============================================================================
-// 4. CERRAR PERIODOS VENCIDOS — cada día a las 04:00 UTC
+// 4. REGISTRAR TAREAS FALLADAS — cada día a las 04:00 UTC
 // =============================================================================
-// Si nadie marcó una tarea como hecha antes de que acabara su periodo, se
-// registra como "missed" y se avanza igualmente la rotación para que no se
-// quede bloqueada en la misma persona para siempre.
+// Ya no hace falta "cerrar periodos" ni avanzar nada -- la asignación es
+// aritmética pura. El cron solo comprueba si la ocurrencia de AYER de cada
+// tarea se completó; si no, la registra como "missed" para que el
+// calendario e historial reflejen la realidad.
 exports.generateRecurringPeriods = onSchedule(
   { schedule: 'every day 04:00', timeZone: 'UTC', region: REGION },
   async () => {
-    const ahoraMs = Date.now();
+    const ayerMs = Date.now() - DIA_MS;
+    const claveAyer = claveDia(ayerMs);
     const householdsSnap = await db.collection('households').get();
 
     for (const houseDoc of householdsSnap.docs) {
@@ -243,21 +272,20 @@ exports.generateRecurringPeriods = onSchedule(
 
       for (const taskDoc of tasksSnap.docs) {
         const task = taskDoc.data();
-        const periodEndMs = task.currentPeriodEnd?.toMillis?.();
-        if (typeof periodEndMs !== 'number' || periodEndMs > ahoraMs) continue;
+        if (!task.anchorDate) continue; // tarea antigua sin sistema de ancla
+        if (task.lastCompletionDay === claveAyer) continue; // se completó ayer
+        if (!ocurreEnDia(task, ayerMs)) continue; // a esta tarea no le tocaba ayer
 
         const completionRef = houseDoc.ref.collection('completions').doc();
         batch.set(completionRef, {
           taskId: taskDoc.id,
           taskTitle: task.title || '',
-          assigneeUid: task.currentAssigneeUid || null,
-          periodStart: task.currentPeriodStart || null,
-          periodEnd: task.currentPeriodEnd || null,
+          assigneeUid: asignadoEnDia(task, ayerMs),
+          occurrenceDate: Timestamp.fromMillis(medianocheUTC(ayerMs)),
           status: 'missed',
           completedAt: null,
           completedBy: null,
         });
-        batch.update(taskDoc.ref, siguienteEstadoRotacion(task, periodEndMs));
         cambios++;
       }
 

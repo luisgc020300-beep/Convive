@@ -1,13 +1,13 @@
 // lib/screens/weekly_calendar.dart
 //
 // Calendario semanal de tareas: una fila de días tocables (lunes a domingo)
-// más un panel de detalle del día seleccionado. El detalle usa lo realmente
-// completado (`completions`, el mismo dato objetivo que ya usa el resto de
-// la app) y, solo para hoy, lo que queda pendiente. No se proyectan
-// asignaciones futuras: la rotación solo se conoce con certeza cuando el
-// cron o una compleción la hacen avanzar, así que mostrar "quién le tocará
-// el jueves" sería inventar un dato -- los días futuros lo dicen así de
-// claro en vez de fingir que lo sabemos.
+// más un panel de detalle del día seleccionado, desde el que también se
+// añaden tareas nuevas ancladas a ese día. Gracias al sistema de ancla de
+// ConviveTask (ver lib/models/task.dart), el detalle de un día -- pasado,
+// hoy o futuro -- se calcula por aritmética, no por suposición: para
+// tareas semanales y "cada X días" sí podemos decir honestamente "esto
+// toca el jueves que viene y le tocaría a Ana", porque ya no depende de
+// cuándo se pulsó "Hecho" la última vez.
 import 'package:flutter/material.dart';
 
 import '../models/household.dart';
@@ -50,10 +50,16 @@ bool _reminderOcurreEnDia(PaymentReminder r, DateTime day) {
 }
 
 class WeeklyCalendar extends StatefulWidget {
-  const WeeklyCalendar({required this.household, required this.tasks, super.key});
+  const WeeklyCalendar({
+    required this.household,
+    required this.tasks,
+    required this.onAddTask,
+    super.key,
+  });
 
   final Household household;
   final List<ConviveTask> tasks;
+  final void Function(DateTime day) onAddTask;
 
   @override
   State<WeeklyCalendar> createState() => _WeeklyCalendarState();
@@ -115,11 +121,13 @@ class _WeeklyCalendarState extends State<WeeklyCalendar> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: List.generate(7, (i) {
                         final day = days[i];
-                        final delDia = completions
-                            .where((c) => c.completedAt != null && _sameDay(c.completedAt!, day))
+                        final resueltas = completions
+                            .where((c) => c.occurrenceDate != null && _sameDay(c.occurrenceDate!, day))
                             .toList();
-                        final hecha = delDia.any((c) => c.status == 'done');
-                        final fallada = delDia.any((c) => c.status == 'missed');
+                        final hecha = resueltas.any((c) => c.status == 'done');
+                        final fallada = resueltas.any((c) => c.status == 'missed');
+                        final programada = widget.tasks.any((t) =>
+                            t.ocurreEnDia(day) && !resueltas.any((c) => c.taskId == t.id));
                         final tieneRecordatorio = reminders.any((r) => _reminderOcurreEnDia(r, day));
                         return _DayDot(
                           label: _diasSemana[i],
@@ -130,7 +138,9 @@ class _WeeklyCalendarState extends State<WeeklyCalendar> {
                               ? _DayState.done
                               : fallada
                                   ? _DayState.missed
-                                  : _DayState.empty,
+                                  : programada
+                                      ? _DayState.scheduled
+                                      : _DayState.empty,
                           tieneRecordatorio: tieneRecordatorio,
                           onTap: () => setState(() => _selectedDay = day),
                         );
@@ -141,11 +151,22 @@ class _WeeklyCalendarState extends State<WeeklyCalendar> {
                       household: widget.household,
                       tasks: widget.tasks,
                       day: _selectedDay,
-                      today: today,
                       completions: completions
-                          .where((c) => c.completedAt != null && _sameDay(c.completedAt!, _selectedDay))
+                          .where((c) => c.occurrenceDate != null && _sameDay(c.occurrenceDate!, _selectedDay))
                           .toList(),
                       reminders: reminders.where((r) => _reminderOcurreEnDia(r, _selectedDay)).toList(),
+                    ),
+                    const SizedBox(height: 8),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: TextButton.icon(
+                        onPressed: () => widget.onAddTask(_selectedDay),
+                        icon: const Icon(Icons.add, size: 16, color: ConviveColors.amber),
+                        label: Text(
+                          'Añadir tarea para el ${_diasSemana[_selectedDay.weekday - 1]} ${_selectedDay.day}',
+                          style: const TextStyle(color: ConviveColors.amber, fontSize: 12.5),
+                        ),
+                      ),
                     ),
                   ],
                 );
@@ -158,7 +179,7 @@ class _WeeklyCalendarState extends State<WeeklyCalendar> {
   }
 }
 
-enum _DayState { done, missed, empty }
+enum _DayState { done, missed, scheduled, empty }
 
 class _DayDot extends StatelessWidget {
   const _DayDot({
@@ -184,8 +205,10 @@ class _DayDot extends StatelessWidget {
     final dotColor = switch (estado) {
       _DayState.done => ConviveColors.amber,
       _DayState.missed => ConviveColors.rust,
+      _DayState.scheduled => ConviveColors.paperMuted,
       _DayState.empty => ConviveColors.paperMuted.withValues(alpha: 0.4),
     };
+    final relleno = estado != _DayState.scheduled;
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
@@ -223,7 +246,11 @@ class _DayDot extends StatelessWidget {
                 Container(
                   width: 6,
                   height: 6,
-                  decoration: BoxDecoration(color: dotColor, shape: BoxShape.circle),
+                  decoration: BoxDecoration(
+                    color: relleno ? dotColor : Colors.transparent,
+                    shape: BoxShape.circle,
+                    border: relleno ? null : Border.all(color: dotColor, width: 1),
+                  ),
                 ),
                 if (tieneRecordatorio) ...[
                   const SizedBox(width: 3),
@@ -243,7 +270,6 @@ class _DayDetail extends StatelessWidget {
     required this.household,
     required this.tasks,
     required this.day,
-    required this.today,
     required this.completions,
     required this.reminders,
   });
@@ -251,32 +277,20 @@ class _DayDetail extends StatelessWidget {
   final Household household;
   final List<ConviveTask> tasks;
   final DateTime day;
-  final DateTime today;
   final List<TaskCompletion> completions;
   final List<PaymentReminder> reminders;
 
   @override
   Widget build(BuildContext context) {
-    final esHoy = _sameDay(day, today);
-    final esFuturo = day.isAfter(today);
-    final pendientes = esHoy
-        ? tasks.where((t) {
-            final start = t.currentPeriodStart;
-            final end = t.currentPeriodEnd;
-            if (start == null || end == null) return false;
-            final cubreHoy = !start.isAfter(DateTime.now()) && end.isAfter(DateTime.now());
-            final yaHecha = completions.any((c) => c.taskId == t.id);
-            return cubreHoy && !yaHecha;
-          }).toList()
-        : const <ConviveTask>[];
+    final programadas = tasks
+        .where((t) => t.ocurreEnDia(day) && !completions.any((c) => c.taskId == t.id))
+        .toList();
 
-    if (completions.isEmpty && pendientes.isEmpty && reminders.isEmpty) {
+    if (completions.isEmpty && programadas.isEmpty && reminders.isEmpty) {
       return Padding(
         padding: const EdgeInsets.symmetric(vertical: 8),
         child: Text(
-          esFuturo
-              ? 'Todavía no lo sabemos -- se decide cuando llegue el día.'
-              : 'Sin registros ese día.',
+          'Nada programado ese día.',
           style: TextStyle(color: ConviveColors.paperMuted.withValues(alpha: 0.8), fontSize: 13),
         ),
       );
@@ -297,10 +311,10 @@ class _DayDetail extends StatelessWidget {
               color: _colorForMember(household, c.completedBy ?? c.assigneeUid),
               icono: c.status == 'done' ? Icons.check_circle : Icons.cancel,
             )),
-        ...pendientes.map((t) => _DetailRow(
+        ...programadas.map((t) => _DetailRow(
               texto: t.title,
-              persona: _nameForMember(household, t.currentAssigneeUid),
-              color: _colorForMember(household, t.currentAssigneeUid),
+              persona: _nameForMember(household, t.asignadoEnDia(day)),
+              color: _colorForMember(household, t.asignadoEnDia(day)),
               icono: Icons.schedule,
               pendiente: true,
             )),
