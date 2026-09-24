@@ -11,7 +11,9 @@
 import 'package:flutter/material.dart';
 
 import '../models/household.dart';
+import '../models/reminder.dart';
 import '../models/task.dart';
+import '../services/reminder_service.dart';
 import '../services/task_service.dart';
 import '../theme/design_tokens.dart';
 import '../widgets/corkboard.dart';
@@ -38,6 +40,14 @@ String _nameForMember(Household household, String? uid) =>
 
 bool _sameDay(DateTime a, DateTime b) =>
     a.year == b.year && a.month == b.month && a.day == b.day;
+
+// Para un recordatorio recurrente, comprueba el día del mes en vez de
+// "próxima ocurrencia desde hoy" -- así aparece correctamente sea cual sea
+// la semana que se esté navegando, no solo la más próxima.
+bool _reminderOcurreEnDia(PaymentReminder r, DateTime day) {
+  if (r.recurring) return day.day == (r.dueDay ?? 1).clamp(1, 28);
+  return r.dueDate != null && _sameDay(r.dueDate!, day);
+}
 
 class WeeklyCalendar extends StatefulWidget {
   const WeeklyCalendar({required this.household, required this.tasks, super.key});
@@ -73,64 +83,73 @@ class _WeeklyCalendarState extends State<WeeklyCalendar> {
         padding: const EdgeInsets.all(12),
         child: StreamBuilder<List<TaskCompletion>>(
           stream: TaskService.streamHistory(widget.household.id, limit: 300),
-          builder: (context, snapshot) {
-            final completions = snapshot.data ?? [];
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          builder: (context, completionsSnapshot) {
+            final completions = completionsSnapshot.data ?? [];
+            return StreamBuilder<List<PaymentReminder>>(
+              stream: ReminderService.streamReminders(widget.household.id),
+              builder: (context, remindersSnapshot) {
+                final reminders = remindersSnapshot.data ?? [];
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    IconButton(
-                      icon: const Icon(Icons.chevron_left, color: ConviveColors.paper),
-                      onPressed: () => setState(() => _weekOffset--),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.chevron_left, color: ConviveColors.paper),
+                          onPressed: () => setState(() => _weekOffset--),
+                        ),
+                        Text(
+                          _weekOffset == 0
+                              ? 'Esta semana'
+                              : '${days.first.day} ${_meses[days.first.month - 1]} — ${days.last.day} ${_meses[days.last.month - 1]}',
+                          style: Theme.of(context).textTheme.labelLarge,
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.chevron_right, color: ConviveColors.paper),
+                          onPressed: () => setState(() => _weekOffset++),
+                        ),
+                      ],
                     ),
-                    Text(
-                      _weekOffset == 0
-                          ? 'Esta semana'
-                          : '${days.first.day} ${_meses[days.first.month - 1]} — ${days.last.day} ${_meses[days.last.month - 1]}',
-                      style: Theme.of(context).textTheme.labelLarge,
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: List.generate(7, (i) {
+                        final day = days[i];
+                        final delDia = completions
+                            .where((c) => c.completedAt != null && _sameDay(c.completedAt!, day))
+                            .toList();
+                        final hecha = delDia.any((c) => c.status == 'done');
+                        final fallada = delDia.any((c) => c.status == 'missed');
+                        final tieneRecordatorio = reminders.any((r) => _reminderOcurreEnDia(r, day));
+                        return _DayDot(
+                          label: _diasSemana[i],
+                          number: day.day,
+                          esHoy: _sameDay(day, today),
+                          seleccionado: _sameDay(day, _selectedDay),
+                          estado: hecha
+                              ? _DayState.done
+                              : fallada
+                                  ? _DayState.missed
+                                  : _DayState.empty,
+                          tieneRecordatorio: tieneRecordatorio,
+                          onTap: () => setState(() => _selectedDay = day),
+                        );
+                      }),
                     ),
-                    IconButton(
-                      icon: const Icon(Icons.chevron_right, color: ConviveColors.paper),
-                      onPressed: () => setState(() => _weekOffset++),
+                    const SizedBox(height: 12),
+                    _DayDetail(
+                      household: widget.household,
+                      tasks: widget.tasks,
+                      day: _selectedDay,
+                      today: today,
+                      completions: completions
+                          .where((c) => c.completedAt != null && _sameDay(c.completedAt!, _selectedDay))
+                          .toList(),
+                      reminders: reminders.where((r) => _reminderOcurreEnDia(r, _selectedDay)).toList(),
                     ),
                   ],
-                ),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: List.generate(7, (i) {
-                    final day = days[i];
-                    final delDia = completions
-                        .where((c) => c.completedAt != null && _sameDay(c.completedAt!, day))
-                        .toList();
-                    final hecha = delDia.any((c) => c.status == 'done');
-                    final fallada = delDia.any((c) => c.status == 'missed');
-                    return _DayDot(
-                      label: _diasSemana[i],
-                      number: day.day,
-                      esHoy: _sameDay(day, today),
-                      seleccionado: _sameDay(day, _selectedDay),
-                      estado: hecha
-                          ? _DayState.done
-                          : fallada
-                              ? _DayState.missed
-                              : _DayState.empty,
-                      onTap: () => setState(() => _selectedDay = day),
-                    );
-                  }),
-                ),
-                const SizedBox(height: 12),
-                _DayDetail(
-                  household: widget.household,
-                  tasks: widget.tasks,
-                  day: _selectedDay,
-                  today: today,
-                  completions: completions
-                      .where((c) => c.completedAt != null && _sameDay(c.completedAt!, _selectedDay))
-                      .toList(),
-                ),
-              ],
+                );
+              },
             );
           },
         ),
@@ -148,6 +167,7 @@ class _DayDot extends StatelessWidget {
     required this.esHoy,
     required this.seleccionado,
     required this.estado,
+    required this.tieneRecordatorio,
     required this.onTap,
   });
 
@@ -156,6 +176,7 @@ class _DayDot extends StatelessWidget {
   final bool esHoy;
   final bool seleccionado;
   final _DayState estado;
+  final bool tieneRecordatorio;
   final VoidCallback onTap;
 
   @override
@@ -196,10 +217,19 @@ class _DayDot extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 4),
-            Container(
-              width: 6,
-              height: 6,
-              decoration: BoxDecoration(color: dotColor, shape: BoxShape.circle),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 6,
+                  height: 6,
+                  decoration: BoxDecoration(color: dotColor, shape: BoxShape.circle),
+                ),
+                if (tieneRecordatorio) ...[
+                  const SizedBox(width: 3),
+                  const Icon(Icons.attach_money, size: 8, color: ConviveColors.mint),
+                ],
+              ],
             ),
           ],
         ),
@@ -215,6 +245,7 @@ class _DayDetail extends StatelessWidget {
     required this.day,
     required this.today,
     required this.completions,
+    required this.reminders,
   });
 
   final Household household;
@@ -222,6 +253,7 @@ class _DayDetail extends StatelessWidget {
   final DateTime day;
   final DateTime today;
   final List<TaskCompletion> completions;
+  final List<PaymentReminder> reminders;
 
   @override
   Widget build(BuildContext context) {
@@ -238,7 +270,7 @@ class _DayDetail extends StatelessWidget {
           }).toList()
         : const <ConviveTask>[];
 
-    if (completions.isEmpty && pendientes.isEmpty) {
+    if (completions.isEmpty && pendientes.isEmpty && reminders.isEmpty) {
       return Padding(
         padding: const EdgeInsets.symmetric(vertical: 8),
         child: Text(
@@ -253,6 +285,12 @@ class _DayDetail extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        ...reminders.map((r) => _DetailRow(
+              texto: r.title,
+              persona: r.recurring ? 'cada mes' : 'pago puntual',
+              color: ConviveColors.mint,
+              icono: Icons.attach_money,
+            )),
         ...completions.map((c) => _DetailRow(
               texto: c.taskTitle,
               persona: _nameForMember(household, c.completedBy ?? c.assigneeUid),

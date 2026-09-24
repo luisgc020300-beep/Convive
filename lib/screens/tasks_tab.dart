@@ -159,16 +159,22 @@ class _TaskCard extends StatelessWidget {
           ),
           FilledButton.tonal(
             style: FilledButton.styleFrom(
-              backgroundColor: esMiTurno
-                  ? ConviveColors.amber.withValues(alpha: 0.22)
-                  : ConviveColors.corkDark,
-              foregroundColor: esMiTurno ? ConviveColors.amber : ConviveColors.paperMuted,
+              backgroundColor: task.completadaHoy
+                  ? ConviveColors.mint.withValues(alpha: 0.18)
+                  : (esMiTurno ? ConviveColors.amber.withValues(alpha: 0.22) : ConviveColors.corkDark),
+              foregroundColor: task.completadaHoy
+                  ? ConviveColors.mint
+                  : (esMiTurno ? ConviveColors.amber : ConviveColors.paperMuted),
+              disabledBackgroundColor: ConviveColors.mint.withValues(alpha: 0.18),
+              disabledForegroundColor: ConviveColors.mint,
             ),
-            onPressed: () => TaskService.completeTask(
-              householdId: household.id,
-              taskId: task.id,
-            ),
-            child: Text(esMiTurno ? 'Hecho' : 'Marcar hecho'),
+            onPressed: task.completadaHoy
+                ? null
+                : () => TaskService.completeTask(
+                      householdId: household.id,
+                      taskId: task.id,
+                    ),
+            child: Text(task.completadaHoy ? 'Hecha hoy' : (esMiTurno ? 'Hecho' : 'Marcar hecho')),
           ),
         ],
       ),

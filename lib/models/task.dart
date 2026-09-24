@@ -41,6 +41,7 @@ class ConviveTask {
   final DateTime? currentPeriodStart;
   final DateTime? currentPeriodEnd;
   final bool active;
+  final String? lastCompletionDay;
 
   const ConviveTask({
     required this.id,
@@ -53,7 +54,16 @@ class ConviveTask {
     this.currentPeriodStart,
     this.currentPeriodEnd,
     required this.active,
+    this.lastCompletionDay,
   });
+
+  // Mismo criterio de "qué día es hoy" (UTC) que usa la Cloud Function
+  // completeTask, para que el botón se desactive con la misma regla que
+  // aplica el servidor -- ver claveDia() en functions/index.js.
+  bool get completadaHoy {
+    final hoy = DateTime.now().toUtc();
+    return lastCompletionDay == '${hoy.year}-${hoy.month}-${hoy.day}';
+  }
 
   factory ConviveTask.fromDoc(DocumentSnapshot<Map<String, dynamic>> doc) {
     final d = doc.data() ?? {};
@@ -69,6 +79,7 @@ class ConviveTask {
       currentPeriodStart: (d['currentPeriodStart'] as Timestamp?)?.toDate(),
       currentPeriodEnd: (d['currentPeriodEnd'] as Timestamp?)?.toDate(),
       active: d['active'] as bool? ?? true,
+      lastCompletionDay: d['lastCompletionDay'] as String?,
     );
   }
 }

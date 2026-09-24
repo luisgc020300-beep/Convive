@@ -137,6 +137,14 @@ function duracionPeriodoMs(recurrence) {
   }
 }
 
+// Clave de día en UTC -- mismo criterio horario que ya usan los crons de
+// este archivo (04:00 UTC), para no mezclar dos formas distintas de
+// decidir "qué día es hoy" dentro del mismo proyecto.
+function claveDia(ms) {
+  const d = new Date(ms);
+  return `${d.getUTCFullYear()}-${d.getUTCMonth() + 1}-${d.getUTCDate()}`;
+}
+
 // Avanza la rotación de una tarea una posición y calcula el nuevo periodo.
 // Devuelve el objeto de campos a escribir sobre el doc de la tarea.
 function siguienteEstadoRotacion(taskData, desdeMs) {
@@ -183,6 +191,13 @@ exports.completeTask = onCall({ region: REGION }, async (request) => {
     const task = taskSnap.data();
 
     const ahoraMs = Date.now();
+    if (task.lastCompletionDay === claveDia(ahoraMs)) {
+      // Sin este freno, cada toque de "Hecho" crea una compleción nueva y
+      // avanza la rotación sin límite -- se puede completar la misma tarea
+      // decenas de veces seguidas en segundos.
+      throw new HttpsError('failed-precondition', 'Esta tarea ya se ha marcado como hecha hoy.');
+    }
+
     const completionRef = householdRef.collection('completions').doc();
     tx.set(completionRef, {
       taskId,
@@ -195,7 +210,10 @@ exports.completeTask = onCall({ region: REGION }, async (request) => {
       completedBy: uid,
     });
 
-    tx.update(taskRef, siguienteEstadoRotacion(task, ahoraMs));
+    tx.update(taskRef, {
+      ...siguienteEstadoRotacion(task, ahoraMs),
+      lastCompletionDay: claveDia(ahoraMs),
+    });
     return { completionId: completionRef.id };
   });
 
