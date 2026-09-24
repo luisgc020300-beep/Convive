@@ -4,11 +4,56 @@
 
 const { onCall, HttpsError } = require('firebase-functions/v2/https');
 const { onSchedule }         = require('firebase-functions/v2/scheduler');
+const { onDocumentCreated }  = require('firebase-functions/v2/firestore');
 const { initializeApp }      = require('firebase-admin/app');
 const { getFirestore, FieldValue, Timestamp } = require('firebase-admin/firestore');
+const { getMessaging }       = require('firebase-admin/messaging');
 
 initializeApp();
 const db = getFirestore();
+
+// =============================================================================
+// NOTIFICACIONES — helpers compartidos
+// =============================================================================
+const PREFS_POR_DEFECTO = {
+  tareaHoy: true,
+  tareaFallada: false,
+  pagoManana: true,
+  nuevoGasto: true,
+  nuevaNota: true,
+  nuevoMensaje: true,
+  resumenSemanalDeudas: false,
+};
+
+async function prefsDe(uid) {
+  const snap = await db.collection('users').doc(uid).get();
+  const guardadas = snap.exists ? snap.data().notificationPrefs : null;
+  return { ...PREFS_POR_DEFECTO, ...(guardadas || {}) };
+}
+
+// No lanza si falla -- un token caducado o sin permiso de un usuario no debe
+// tumbar el envío al resto ni la función que lo llama.
+async function enviarPush(uid, title, body, data) {
+  try {
+    const snap = await db.collection('users').doc(uid).get();
+    const token = snap.data()?.fcmToken;
+    if (!token) return;
+    await getMessaging().send({ token, notification: { title, body }, data: data || {} });
+  } catch (e) {
+    console.error('enviarPush: fallo notificando a', uid, e);
+  }
+}
+
+function calcularBalances(expenses) {
+  const balances = {};
+  for (const e of expenses) {
+    balances[e.paidByUid] = (balances[e.paidByUid] || 0) + e.amount;
+    for (const [uid, valor] of Object.entries(e.splits || {})) {
+      balances[uid] = (balances[uid] || 0) - valor;
+    }
+  }
+  return balances;
+}
 
 const REGION = 'europe-west1';
 const MAX_MIEMBROS_PISO = 10;
@@ -322,6 +367,184 @@ exports.generateRecurringPeriods = onSchedule(
       }
 
       if (cambios > 0) await batch.commit();
+    }
+  }
+);
+
+// =============================================================================
+// 5. NOTIFICAR TAREAS DEL DÍA — cada día a las 09:00 hora de España
+// =============================================================================
+// Un solo mensaje por persona agrupando todas sus tareas de hoy (no uno por
+// tarea) -- justo el criterio de "sin exceso de notificaciones" que se
+// acordó. También avisa de lo que se quedó sin hacer ayer, si esa persona
+// tiene esa categoría activada (OFF por defecto, es la única "regañina").
+exports.notificarTareasDelDia = onSchedule(
+  { schedule: 'every day 09:00', timeZone: 'Europe/Madrid', region: REGION },
+  async () => {
+    const hoyMs = Date.now();
+    const ayerMs = hoyMs - DIA_MS;
+    const householdsSnap = await db.collection('households').get();
+
+    for (const houseDoc of householdsSnap.docs) {
+      const tasksSnap = await houseDoc.ref.collection('tasks').where('active', '==', true).get();
+      if (tasksSnap.empty) continue;
+
+      const hoyPorUid = {};
+      const ayerPorUid = {};
+      for (const taskDoc of tasksSnap.docs) {
+        const task = taskDoc.data();
+        if (!task.anchorDate) continue;
+
+        const hoyUid = asignadoEnDia(task, hoyMs);
+        if (hoyUid) (hoyPorUid[hoyUid] ||= []).push(task.title || 'tarea');
+
+        if (ocurreEnDia(task, ayerMs) && task.lastCompletionDay !== claveDia(ayerMs)) {
+          const ayerUid = asignadoEnDia(task, ayerMs);
+          if (ayerUid) (ayerPorUid[ayerUid] ||= []).push(task.title || 'tarea');
+        }
+      }
+
+      const uids = new Set([...Object.keys(hoyPorUid), ...Object.keys(ayerPorUid)]);
+      for (const uid of uids) {
+        const prefs = await prefsDe(uid);
+        if (prefs.tareaHoy && hoyPorUid[uid]?.length) {
+          await enviarPush(uid, 'Convive', `Hoy te toca: ${hoyPorUid[uid].join(', ')}`, { type: 'tareaHoy' });
+        }
+        if (prefs.tareaFallada && ayerPorUid[uid]?.length) {
+          await enviarPush(uid, 'Convive', `Ayer se quedó sin hacer: ${ayerPorUid[uid].join(', ')}`, { type: 'tareaFallada' });
+        }
+      }
+    }
+  }
+);
+
+// =============================================================================
+// 6. NOTIFICAR PAGOS QUE VENCEN MAÑANA — cada día a las 19:00 hora de España
+// =============================================================================
+exports.notificarPagosManana = onSchedule(
+  { schedule: 'every day 19:00', timeZone: 'Europe/Madrid', region: REGION },
+  async () => {
+    const mananaMs = Date.now() + DIA_MS;
+    const mananaDate = new Date(mananaMs);
+    const householdsSnap = await db.collection('households').get();
+
+    for (const houseDoc of householdsSnap.docs) {
+      const remindersSnap = await houseDoc.ref.collection('reminders').get();
+      if (remindersSnap.empty) continue;
+
+      const claveManana = claveDia(mananaMs);
+      const titulosDeManana = [];
+      const refsAActualizar = [];
+
+      for (const remDoc of remindersSnap.docs) {
+        const rem = remDoc.data();
+        if (rem.lastNotifiedDay === claveManana) continue; // ya avisado para ese día
+        const ocurreManana = rem.recurring
+          ? mananaDate.getUTCDate() === Math.min(Math.max(Number(rem.dueDay) || 1, 1), 28)
+          : rem.dueDate && claveDia(rem.dueDate.toMillis()) === claveManana;
+        if (!ocurreManana) continue;
+        titulosDeManana.push(rem.title || 'recordatorio');
+        refsAActualizar.push(remDoc.ref);
+      }
+      if (titulosDeManana.length === 0) continue;
+
+      const houseData = houseDoc.data();
+      for (const uid of houseData.members || []) {
+        const prefs = await prefsDe(uid);
+        if (!prefs.pagoManana) continue;
+        await enviarPush(uid, 'Convive', `Mañana vence: ${titulosDeManana.join(', ')}`, { type: 'pagoManana' });
+      }
+      await Promise.all(refsAActualizar.map((ref) => ref.update({ lastNotifiedDay: claveManana })));
+    }
+  }
+);
+
+// =============================================================================
+// 7. NOTIFICAR RESUMEN SEMANAL DE DEUDAS — domingos a las 18:00 hora de España
+// =============================================================================
+exports.notificarResumenSemanal = onSchedule(
+  { schedule: '0 18 * * 0', timeZone: 'Europe/Madrid', region: REGION },
+  async () => {
+    const householdsSnap = await db.collection('households').get();
+    for (const houseDoc of householdsSnap.docs) {
+      const expensesSnap = await houseDoc.ref.collection('expenses').get();
+      if (expensesSnap.empty) continue;
+      const balances = calcularBalances(expensesSnap.docs.map((d) => d.data()));
+
+      for (const [uid, saldo] of Object.entries(balances)) {
+        if (Math.abs(saldo) < 0.005) continue;
+        const prefs = await prefsDe(uid);
+        if (!prefs.resumenSemanalDeudas) continue;
+        const mensaje = saldo > 0
+          ? `Te deben ${saldo.toFixed(2)}€`
+          : `Debes ${Math.abs(saldo).toFixed(2)}€`;
+        await enviarPush(uid, 'Convive', mensaje, { type: 'resumenSemanalDeudas' });
+      }
+    }
+  }
+);
+
+// =============================================================================
+// 8. NOTIFICAR GASTO NUEVO — al crearse un gasto
+// =============================================================================
+exports.notificarGastoNuevo = onDocumentCreated(
+  { document: 'households/{householdId}/expenses/{expenseId}', region: REGION },
+  async (event) => {
+    const gasto = event.data.data();
+    const { householdId } = event.params;
+    const houseSnap = await db.collection('households').doc(householdId).get();
+    if (!houseSnap.exists) return;
+    const nombrePagador = houseSnap.data().memberProfiles?.[gasto.paidByUid]?.displayName || 'Alguien';
+
+    for (const uid of Object.keys(gasto.splits || {})) {
+      if (uid === gasto.paidByUid) continue; // no hace falta avisar a quien ya lo sabe -- lo pagó él
+      const prefs = await prefsDe(uid);
+      if (!prefs.nuevoGasto) continue;
+      await enviarPush(uid, 'Convive', `${nombrePagador} ha añadido un gasto: ${gasto.description} (${Number(gasto.amount).toFixed(2)}€)`, { type: 'nuevoGasto' });
+    }
+  }
+);
+
+// =============================================================================
+// 9. NOTIFICAR NOTA NUEVA — al clavar una nota
+// =============================================================================
+exports.notificarNotaNueva = onDocumentCreated(
+  { document: 'households/{householdId}/notes/{noteId}', region: REGION },
+  async (event) => {
+    const nota = event.data.data();
+    const { householdId } = event.params;
+    const houseSnap = await db.collection('households').doc(householdId).get();
+    if (!houseSnap.exists) return;
+    const houseData = houseSnap.data();
+    const nombreAutor = houseData.memberProfiles?.[nota.authorUid]?.displayName || 'Alguien';
+
+    for (const uid of houseData.members || []) {
+      if (uid === nota.authorUid) continue;
+      const prefs = await prefsDe(uid);
+      if (!prefs.nuevaNota) continue;
+      await enviarPush(uid, 'Convive', `${nombreAutor} ha clavado una nota: ${nota.text}`, { type: 'nuevaNota' });
+    }
+  }
+);
+
+// =============================================================================
+// 10. NOTIFICAR MENSAJE NUEVO — al enviar un mensaje de chat
+// =============================================================================
+exports.notificarMensajeNuevo = onDocumentCreated(
+  { document: 'households/{householdId}/messages/{messageId}', region: REGION },
+  async (event) => {
+    const mensaje = event.data.data();
+    const { householdId } = event.params;
+    const houseSnap = await db.collection('households').doc(householdId).get();
+    if (!houseSnap.exists) return;
+    const houseData = houseSnap.data();
+    const nombreAutor = houseData.memberProfiles?.[mensaje.authorUid]?.displayName || 'Alguien';
+
+    for (const uid of houseData.members || []) {
+      if (uid === mensaje.authorUid) continue;
+      const prefs = await prefsDe(uid);
+      if (!prefs.nuevoMensaje) continue;
+      await enviarPush(uid, nombreAutor, mensaje.text, { type: 'nuevoMensaje' });
     }
   }
 );
