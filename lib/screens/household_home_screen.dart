@@ -9,6 +9,7 @@ import '../models/household.dart';
 import '../services/household_service.dart';
 import '../theme/design_tokens.dart';
 import 'chat_tab.dart';
+import 'notification_prefs_screen.dart';
 import 'payments_tab.dart';
 import 'settings_screen.dart';
 import 'tasks_tab.dart';
@@ -60,6 +61,13 @@ class _HouseholdShellState extends State<_HouseholdShell> {
         toolbarHeight: 44,
         title: Text(_nombresPestanas[_index]),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.notifications_outlined, size: 22),
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const NotificationPrefsScreen()),
+            ),
+          ),
           IconButton(
             icon: const Icon(Icons.settings_outlined, size: 22),
             onPressed: () => Navigator.push(
