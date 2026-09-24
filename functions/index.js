@@ -119,6 +119,38 @@ exports.joinHousehold = onCall({ region: REGION }, async (request) => {
 });
 
 // =============================================================================
+// NICKNAME — cambia el nombre visible en notas/tareas/chat
+// =============================================================================
+// households/{hid} solo se puede escribir vía Cloud Function (ver
+// firestore.rules), así que un cambio de nickname necesita pasar por aquí
+// para sincronizarse también en el piso activo -- si no, el cambio se
+// quedaría solo en users/{uid} y nunca se vería reflejado en las notas o
+// tareas ya existentes de tu piso.
+exports.updateNickname = onCall({ region: REGION }, async (request) => {
+  if (!request.auth) throw new HttpsError('unauthenticated', 'Debes estar autenticado.');
+  const uid = request.auth.uid;
+  const nickname = typeof request.data?.nickname === 'string' ? request.data.nickname.trim() : '';
+  if (!nickname || nickname.length > 40) {
+    throw new HttpsError('invalid-argument', 'Nombre inválido.');
+  }
+
+  const userRef = db.collection('users').doc(uid);
+  const userSnap = await userRef.get();
+  const activeHouseholdId = userSnap.exists ? userSnap.data().activeHouseholdId : null;
+
+  const batch = db.batch();
+  batch.set(userRef, { displayName: nickname }, { merge: true });
+  if (activeHouseholdId) {
+    batch.update(db.collection('households').doc(activeHouseholdId), {
+      [`memberProfiles.${uid}.displayName`]: nickname,
+    });
+  }
+  await batch.commit();
+
+  return { ok: true };
+});
+
+// =============================================================================
 // TAREAS — aritmética de ancla compartida (mismas reglas que
 // ConviveTask.ocurreEnDia/asignadoEnDia en lib/models/task.dart -- si se
 // cambia una, hay que cambiar la otra)

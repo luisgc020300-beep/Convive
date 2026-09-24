@@ -67,20 +67,30 @@ class _LoginScreenState extends State<LoginScreen> {
                       textAlign: TextAlign.center,
                       style: Theme.of(context).textTheme.bodyMedium),
                   const SizedBox(height: 32),
-                  TextFormField(
-                    controller: _emailCtrl,
-                    keyboardType: TextInputType.emailAddress,
-                    decoration: const InputDecoration(labelText: 'Email'),
-                    validator: (v) =>
-                        (v == null || !v.contains('@')) ? 'Email no válido' : null,
-                  ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: _passCtrl,
-                    obscureText: true,
-                    decoration: const InputDecoration(labelText: 'Contraseña'),
-                    validator: (v) =>
-                        (v == null || v.length < 6) ? 'Mínimo 6 caracteres' : null,
+                  AutofillGroup(
+                    child: Column(
+                      children: [
+                        TextFormField(
+                          controller: _emailCtrl,
+                          keyboardType: TextInputType.emailAddress,
+                          autofillHints: const [AutofillHints.email],
+                          decoration: const InputDecoration(labelText: 'Email'),
+                          validator: (v) =>
+                              (v == null || !v.contains('@')) ? 'Email no válido' : null,
+                        ),
+                        const SizedBox(height: 12),
+                        TextFormField(
+                          controller: _passCtrl,
+                          obscureText: true,
+                          autofillHints: [
+                            _esRegistro ? AutofillHints.newPassword : AutofillHints.password,
+                          ],
+                          decoration: const InputDecoration(labelText: 'Contraseña'),
+                          validator: (v) =>
+                              (v == null || v.length < 6) ? 'Mínimo 6 caracteres' : null,
+                        ),
+                      ],
+                    ),
                   ),
                   if (_error != null) ...[
                     const SizedBox(height: 12),

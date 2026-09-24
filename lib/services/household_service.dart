@@ -46,6 +46,14 @@ class HouseholdService {
     return result.data['householdId'] as String;
   }
 
+  /// Cambia el nombre visible en notas/tareas/chat -- se sincroniza también
+  /// en el piso activo, no solo en el perfil del usuario.
+  static Future<void> updateNickname(String nickname) async {
+    final callable = FirebaseFunctions.instanceFor(region: _region)
+        .httpsCallable('updateNickname');
+    await callable.call<Map<String, dynamic>>({'nickname': nickname});
+  }
+
   /// Crea (o actualiza) el documento de perfil del usuario tras el login.
   static Future<void> asegurarPerfilUsuario() async {
     final user = FirebaseAuth.instance.currentUser;
