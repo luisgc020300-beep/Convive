@@ -14,6 +14,7 @@ import '../services/reminder_service.dart';
 import '../theme/design_tokens.dart';
 import '../widgets/convive_sheet.dart';
 import '../widgets/dashed_divider.dart';
+import 'expenses_summary_screen.dart';
 
 const _mesesPagos = [
   'ene', 'feb', 'mar', 'abr', 'may', 'jun',
@@ -36,10 +37,22 @@ class PaymentsTab extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text('Gastos comunes', style: Theme.of(context).textTheme.titleLarge),
-            TextButton.icon(
-              onPressed: () => _mostrarNuevoGasto(context, household),
-              icon: const Icon(Icons.add, color: ConviveColors.mint),
-              label: const Text('Nuevo', style: TextStyle(color: ConviveColors.mint)),
+            Row(
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.bar_chart_rounded, color: ConviveColors.mint, size: 20),
+                  tooltip: 'Resumen de gastos',
+                  onPressed: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => ExpensesSummaryScreen(household: household)),
+                  ),
+                ),
+                TextButton.icon(
+                  onPressed: () => _mostrarNuevoGasto(context, household),
+                  icon: const Icon(Icons.add, color: ConviveColors.mint),
+                  label: const Text('Nuevo', style: TextStyle(color: ConviveColors.mint)),
+                ),
+              ],
             ),
           ],
         ),
