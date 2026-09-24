@@ -77,4 +77,16 @@ class TaskService {
       'taskId': taskId,
     });
   }
+
+  static Future<void> deleteTask({
+    required String householdId,
+    required String taskId,
+  }) async {
+    await _db
+        .collection('households')
+        .doc(householdId)
+        .collection('tasks')
+        .doc(taskId)
+        .delete();
+  }
 }

@@ -176,9 +176,34 @@ class _TaskCard extends StatelessWidget {
                     ),
             child: Text(task.completadaHoy ? 'Hecha hoy' : (esMiTurno ? 'Hecho' : 'Marcar hecho')),
           ),
+          IconButton(
+            icon: const Icon(Icons.delete_outline, size: 18, color: ConviveColors.paperMuted),
+            onPressed: () => _confirmarBorrado(context, household, task),
+          ),
         ],
       ),
     );
+  }
+
+  Future<void> _confirmarBorrado(BuildContext context, Household household, ConviveTask task) async {
+    final confirmado = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('¿Borrar esta tarea?'),
+        content: Text('Se dejará de repartir "${task.title}". El historial ya registrado no se borra.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: ConviveColors.rust),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Borrar'),
+          ),
+        ],
+      ),
+    );
+    if (confirmado == true) {
+      await TaskService.deleteTask(householdId: household.id, taskId: task.id);
+    }
   }
 }
 
