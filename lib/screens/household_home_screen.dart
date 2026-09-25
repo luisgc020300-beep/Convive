@@ -82,8 +82,8 @@ class _HouseholdShellState extends State<_HouseholdShell> {
         height: 56,
         selectedIndex: _index,
         onDestinationSelected: (i) => setState(() => _index = i),
-        backgroundColor: ConviveColors.wall,
-        indicatorColor: ConviveColors.amber.withValues(alpha: 0.18),
+        backgroundColor: context.colors.wall,
+        indicatorColor: context.colors.amber.withValues(alpha: 0.18),
         labelBehavior: NavigationDestinationLabelBehavior.alwaysHide,
         destinations: const [
           NavigationDestination(icon: Icon(Icons.checklist_rounded), label: 'Tareas'),

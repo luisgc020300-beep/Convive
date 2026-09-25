@@ -95,10 +95,10 @@ class _Grupo extends StatelessWidget {
         Padding(
           padding: const EdgeInsets.only(bottom: 8, left: 4),
           child: Text(titulo.toUpperCase(),
-              style: TextStyle(fontSize: 11, letterSpacing: 1.2, color: ConviveColors.paperMuted)),
+              style: TextStyle(fontSize: 11, letterSpacing: 1.2, color: context.colors.paperMuted)),
         ),
         Container(
-          decoration: BoxDecoration(color: ConviveColors.cork, borderRadius: BorderRadius.circular(14)),
+          decoration: BoxDecoration(color: context.colors.cork, borderRadius: BorderRadius.circular(14)),
           child: Column(children: children),
         ),
       ],
@@ -122,9 +122,9 @@ class _Interruptor extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SwitchListTile(
-      activeThumbColor: ConviveColors.amber,
+      activeThumbColor: context.colors.amber,
       title: Text(titulo),
-      subtitle: Text(subtitulo, style: TextStyle(fontSize: 12, color: ConviveColors.paperMuted)),
+      subtitle: Text(subtitulo, style: TextStyle(fontSize: 12, color: context.colors.paperMuted)),
       value: valor,
       onChanged: onChanged,
     );

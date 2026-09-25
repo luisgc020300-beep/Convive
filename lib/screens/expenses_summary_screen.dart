@@ -69,24 +69,24 @@ class _ExpensesSummaryScreenState extends State<ExpensesSummaryScreen> {
               else if (gastos.isEmpty)
                 Padding(
                   padding: const EdgeInsets.symmetric(vertical: 24),
-                  child: Text('Sin gastos ese mes.', style: TextStyle(color: ConviveColors.paperMuted)),
+                  child: Text('Sin gastos ese mes.', style: TextStyle(color: context.colors.paperMuted)),
                 )
               else ...[
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   decoration: BoxDecoration(
-                    color: ConviveColors.mint.withValues(alpha: 0.12),
+                    color: context.colors.mint.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: ConviveColors.mint.withValues(alpha: 0.4)),
+                    border: Border.all(color: context.colors.mint.withValues(alpha: 0.4)),
                   ),
                   child: Column(
                     children: [
-                      const Text('TOTAL DEL PISO',
-                          style: TextStyle(fontSize: 11, letterSpacing: 1.5, color: ConviveColors.paperMuted)),
+                      Text('TOTAL DEL PISO',
+                          style: TextStyle(fontSize: 11, letterSpacing: 1.5, color: context.colors.paperMuted)),
                       const SizedBox(height: 4),
                       Text('${total.toStringAsFixed(2)}€',
-                          style: ConviveText.amount(fontSize: 30, weight: FontWeight.w700, color: ConviveColors.mint)),
+                          style: ConviveText.amount(fontSize: 30, weight: FontWeight.w700, color: context.colors.mint)),
                     ],
                   ),
                 ),
@@ -101,13 +101,14 @@ class _ExpensesSummaryScreenState extends State<ExpensesSummaryScreen> {
                       children: [
                         Row(
                           children: [
-                            Icon(cat.icon, size: 16, color: ConviveColors.paperMuted),
+                            Icon(cat.icon, size: 16, color: context.colors.paperMuted),
                             const SizedBox(width: 8),
                             Expanded(child: Text(cat.label, style: const TextStyle(fontWeight: FontWeight.w600))),
                             Text('${(proporcion * 100).round()}%',
-                                style: TextStyle(fontSize: 12, color: ConviveColors.paperMuted)),
+                                style: TextStyle(fontSize: 12, color: context.colors.paperMuted)),
                             const SizedBox(width: 8),
-                            Text('${importe.toStringAsFixed(2)}€', style: ConviveText.amount(fontSize: 14)),
+                            Text('${importe.toStringAsFixed(2)}€',
+                                style: ConviveText.amount(fontSize: 14, color: context.colors.paper)),
                           ],
                         ),
                         const SizedBox(height: 6),
@@ -116,8 +117,8 @@ class _ExpensesSummaryScreenState extends State<ExpensesSummaryScreen> {
                           child: LinearProgressIndicator(
                             value: proporcion,
                             minHeight: 5,
-                            backgroundColor: ConviveColors.corkDark,
-                            valueColor: const AlwaysStoppedAnimation(ConviveColors.mint),
+                            backgroundColor: context.colors.corkDark,
+                            valueColor: AlwaysStoppedAnimation(context.colors.mint),
                           ),
                         ),
                       ],

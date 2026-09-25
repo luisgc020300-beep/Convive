@@ -68,10 +68,10 @@ class _ChatTabState extends State<ChatTab> {
                       ),
                       decoration: BoxDecoration(
                         color: esMio
-                            ? ConviveColors.coral.withValues(alpha: 0.22)
-                            : ConviveColors.cork,
+                            ? context.colors.coral.withValues(alpha: 0.22)
+                            : context.colors.cork,
                         borderRadius: BorderRadius.circular(12),
-                        border: esMio ? Border.all(color: ConviveColors.coral.withValues(alpha: 0.5)) : null,
+                        border: esMio ? Border.all(color: context.colors.coral.withValues(alpha: 0.5)) : null,
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -80,13 +80,13 @@ class _ChatTabState extends State<ChatTab> {
                           if (!esMio)
                             Text(
                               autor,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontWeight: FontWeight.w700,
                                 fontSize: 11.5,
-                                color: ConviveColors.paperMuted,
+                                color: context.colors.paperMuted,
                               ),
                             ),
-                          Text(m.text, style: const TextStyle(color: ConviveColors.paper)),
+                          Text(m.text, style: TextStyle(color: context.colors.paper)),
                         ],
                       ),
                     ),
@@ -110,7 +110,7 @@ class _ChatTabState extends State<ChatTab> {
                     textInputAction: TextInputAction.send,
                   ),
                 ),
-                IconButton(icon: const Icon(Icons.send, color: ConviveColors.coral), onPressed: _enviar),
+                IconButton(icon: Icon(Icons.send, color: context.colors.coral), onPressed: _enviar),
               ],
             ),
           ),

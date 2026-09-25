@@ -14,6 +14,7 @@ import 'screens/household_gate_screen.dart';
 import 'screens/login_screen.dart';
 import 'services/household_service.dart';
 import 'theme/design_tokens.dart';
+import 'theme/theme_controller.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -32,35 +33,42 @@ void main() async {
   await FirebaseCrashlytics.instance.setCrashlyticsCollectionEnabled(!kDebugMode);
 
   await setupLocator();
+  final themeController = await ThemeController.load();
 
   FirebaseAuth.instance.authStateChanges().listen((user) {
     if (user != null) HouseholdService.asegurarPerfilUsuario();
   });
 
-  runApp(const ConviveApp());
+  runApp(ConviveApp(themeController: themeController));
 }
 
 class ConviveApp extends StatelessWidget {
-  const ConviveApp({super.key});
+  const ConviveApp({required this.themeController, super.key});
+
+  final ThemeController themeController;
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      title: 'Convive',
-      themeMode: ThemeMode.dark,
-      darkTheme: buildConviveTheme(),
-      home: StreamBuilder<User?>(
-        stream: FirebaseAuth.instance.authStateChanges(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Scaffold(
-              body: Center(child: CircularProgressIndicator()),
-            );
-          }
-          if (snapshot.hasData) return const HouseholdGateScreen();
-          return const LoginScreen();
-        },
+    return AnimatedBuilder(
+      animation: themeController,
+      builder: (context, _) => MaterialApp(
+        debugShowCheckedModeBanner: false,
+        title: 'Convive',
+        themeMode: themeController.mode,
+        theme: buildConviveLightTheme(),
+        darkTheme: buildConviveDarkTheme(),
+        home: StreamBuilder<User?>(
+          stream: FirebaseAuth.instance.authStateChanges(),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Scaffold(
+                body: Center(child: CircularProgressIndicator()),
+              );
+            }
+            if (snapshot.hasData) return const HouseholdGateScreen();
+            return const LoginScreen();
+          },
+        ),
       ),
     );
   }

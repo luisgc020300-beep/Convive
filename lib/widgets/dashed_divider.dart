@@ -14,7 +14,7 @@ class DashedDivider extends StatelessWidget {
   Widget build(BuildContext context) {
     return CustomPaint(
       size: const Size(double.infinity, 1),
-      painter: _DashPainter(color ?? ConviveColors.paperMuted.withValues(alpha: 0.35)),
+      painter: _DashPainter(color ?? context.colors.paperMuted.withValues(alpha: 0.35)),
     );
   }
 }

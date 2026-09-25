@@ -28,16 +28,18 @@ const _mesesLargos = [
   'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
   'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre',
 ];
-const _memberColors = [
-  ConviveColors.amber, ConviveColors.coral, ConviveColors.mint,
-  Color(0xFFB08FD8), ConviveColors.rust, Color(0xFF5C9EE8),
-];
 
-Color _colorForMember(Household household, String? uid) {
-  if (uid == null) return ConviveColors.paperMuted;
+List<Color> _memberColors(ConviveColorsExt colors) => [
+      colors.amber, colors.coral, colors.mint,
+      const Color(0xFFB08FD8), colors.rust, const Color(0xFF5C9EE8),
+    ];
+
+Color _colorForMember(ConviveColorsExt colors, Household household, String? uid) {
+  if (uid == null) return colors.paperMuted;
   final i = household.members.indexOf(uid);
-  if (i < 0) return ConviveColors.paperMuted;
-  return _memberColors[i % _memberColors.length];
+  if (i < 0) return colors.paperMuted;
+  final paleta = _memberColors(colors);
+  return paleta[i % paleta.length];
 }
 
 String _nameForMember(Household household, String? uid) =>
@@ -103,6 +105,7 @@ class _WeeklyCalendarState extends State<WeeklyCalendar> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     final today = _todayMidnight();
 
     final List<DateTime> diasSemana;
@@ -144,7 +147,7 @@ class _WeeklyCalendarState extends State<WeeklyCalendar> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         IconButton(
-                          icon: const Icon(Icons.chevron_left, color: ConviveColors.paper),
+                          icon: Icon(Icons.chevron_left, color: colors.paper),
                           onPressed: () => setState(() =>
                               _expandido ? _monthOffset-- : _weekOffset--),
                         ),
@@ -157,7 +160,7 @@ class _WeeklyCalendarState extends State<WeeklyCalendar> {
                           style: Theme.of(context).textTheme.labelLarge,
                         ),
                         IconButton(
-                          icon: const Icon(Icons.chevron_right, color: ConviveColors.paper),
+                          icon: Icon(Icons.chevron_right, color: colors.paper),
                           onPressed: () => setState(() =>
                               _expandido ? _monthOffset++ : _weekOffset++),
                         ),
@@ -171,8 +174,8 @@ class _WeeklyCalendarState extends State<WeeklyCalendar> {
                                   width: 30,
                                   child: Text(l,
                                       textAlign: TextAlign.center,
-                                      style: const TextStyle(
-                                          fontSize: 10, fontWeight: FontWeight.w700, color: ConviveColors.paperMuted)),
+                                      style: TextStyle(
+                                          fontSize: 10, fontWeight: FontWeight.w700, color: colors.paperMuted)),
                                 ))
                             .toList(),
                       ),
@@ -219,10 +222,10 @@ class _WeeklyCalendarState extends State<WeeklyCalendar> {
                         Expanded(
                           child: TextButton.icon(
                             onPressed: () => widget.onAddTask(_selectedDay),
-                            icon: const Icon(Icons.add, size: 16, color: ConviveColors.amber),
+                            icon: Icon(Icons.add, size: 16, color: colors.amber),
                             label: Text(
                               'Añadir tarea para el ${_diasSemana[_selectedDay.weekday - 1]} ${_selectedDay.day}',
-                              style: const TextStyle(color: ConviveColors.amber, fontSize: 12.5),
+                              style: TextStyle(color: colors.amber, fontSize: 12.5),
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
@@ -232,11 +235,11 @@ class _WeeklyCalendarState extends State<WeeklyCalendar> {
                           icon: Icon(
                             _expandido ? Icons.expand_less : Icons.expand_more,
                             size: 18,
-                            color: ConviveColors.paperMuted,
+                            color: colors.paperMuted,
                           ),
                           label: Text(
                             _expandido ? 'Semana' : 'Mes',
-                            style: const TextStyle(color: ConviveColors.paperMuted, fontSize: 12.5),
+                            style: TextStyle(color: colors.paperMuted, fontSize: 12.5),
                           ),
                         ),
                       ],
@@ -317,11 +320,12 @@ class _MonthDayCell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     final dotColor = switch (estado) {
-      _DayState.done => ConviveColors.amber,
-      _DayState.missed => ConviveColors.rust,
-      _DayState.scheduled => ConviveColors.paperMuted,
-      _DayState.empty => ConviveColors.paperMuted.withValues(alpha: 0.3),
+      _DayState.done => colors.amber,
+      _DayState.missed => colors.rust,
+      _DayState.scheduled => colors.paperMuted,
+      _DayState.empty => colors.paperMuted.withValues(alpha: 0.3),
     };
     final relleno = estado != _DayState.scheduled;
     return GestureDetector(
@@ -330,9 +334,9 @@ class _MonthDayCell extends StatelessWidget {
       child: Container(
         margin: const EdgeInsets.all(1),
         decoration: BoxDecoration(
-          color: seleccionado ? ConviveColors.amber.withValues(alpha: 0.18) : null,
+          color: seleccionado ? colors.amber.withValues(alpha: 0.18) : null,
           borderRadius: BorderRadius.circular(8),
-          border: seleccionado ? Border.all(color: ConviveColors.amber, width: 1.2) : null,
+          border: seleccionado ? Border.all(color: colors.amber, width: 1.2) : null,
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -341,7 +345,7 @@ class _MonthDayCell extends StatelessWidget {
               '$number',
               style: TextStyle(
                 fontSize: 12.5,
-                color: esHoy ? ConviveColors.amber : ConviveColors.paper,
+                color: esHoy ? colors.amber : colors.paper,
                 fontWeight: esHoy ? FontWeight.w800 : FontWeight.w500,
               ),
             ),
@@ -360,7 +364,7 @@ class _MonthDayCell extends StatelessWidget {
                 ),
                 if (tieneRecordatorio) ...[
                   const SizedBox(width: 2),
-                  const Icon(Icons.attach_money, size: 7, color: ConviveColors.mint),
+                  Icon(Icons.attach_money, size: 7, color: colors.mint),
                 ],
               ],
             ),
@@ -392,11 +396,12 @@ class _DayDot extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     final dotColor = switch (estado) {
-      _DayState.done => ConviveColors.amber,
-      _DayState.missed => ConviveColors.rust,
-      _DayState.scheduled => ConviveColors.paperMuted,
-      _DayState.empty => ConviveColors.paperMuted.withValues(alpha: 0.4),
+      _DayState.done => colors.amber,
+      _DayState.missed => colors.rust,
+      _DayState.scheduled => colors.paperMuted,
+      _DayState.empty => colors.paperMuted.withValues(alpha: 0.4),
     };
     final relleno = estado != _DayState.scheduled;
     return GestureDetector(
@@ -406,9 +411,9 @@ class _DayDot extends StatelessWidget {
         width: 38,
         padding: const EdgeInsets.symmetric(vertical: 6),
         decoration: BoxDecoration(
-          color: seleccionado ? ConviveColors.amber.withValues(alpha: 0.18) : null,
+          color: seleccionado ? colors.amber.withValues(alpha: 0.18) : null,
           borderRadius: BorderRadius.circular(10),
-          border: seleccionado ? Border.all(color: ConviveColors.amber, width: 1.4) : null,
+          border: seleccionado ? Border.all(color: colors.amber, width: 1.4) : null,
         ),
         child: Column(
           children: [
@@ -416,7 +421,7 @@ class _DayDot extends StatelessWidget {
               label,
               style: TextStyle(
                 fontSize: 11,
-                color: esHoy ? ConviveColors.amber : ConviveColors.paperMuted,
+                color: esHoy ? colors.amber : colors.paperMuted,
                 fontWeight: FontWeight.w700,
               ),
             ),
@@ -425,7 +430,7 @@ class _DayDot extends StatelessWidget {
               '$number',
               style: TextStyle(
                 fontSize: 15,
-                color: ConviveColors.paper,
+                color: colors.paper,
                 fontWeight: esHoy ? FontWeight.w800 : FontWeight.w500,
               ),
             ),
@@ -444,7 +449,7 @@ class _DayDot extends StatelessWidget {
                 ),
                 if (tieneRecordatorio) ...[
                   const SizedBox(width: 3),
-                  const Icon(Icons.attach_money, size: 8, color: ConviveColors.mint),
+                  Icon(Icons.attach_money, size: 8, color: colors.mint),
                 ],
               ],
             ),
@@ -472,6 +477,7 @@ class _DayDetail extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     final programadas = tasks
         .where((t) => t.ocurreEnDia(day) && !completions.any((c) => c.taskId == t.id))
         .toList();
@@ -481,7 +487,7 @@ class _DayDetail extends StatelessWidget {
         padding: const EdgeInsets.symmetric(vertical: 8),
         child: Text(
           'Nada programado ese día.',
-          style: TextStyle(color: ConviveColors.paperMuted.withValues(alpha: 0.8), fontSize: 13),
+          style: TextStyle(color: colors.paperMuted.withValues(alpha: 0.8), fontSize: 13),
         ),
       );
     }
@@ -492,19 +498,19 @@ class _DayDetail extends StatelessWidget {
         ...reminders.map((r) => _DetailRow(
               texto: r.title,
               persona: r.recurring ? 'cada mes' : 'pago puntual',
-              color: ConviveColors.mint,
+              color: colors.mint,
               icono: Icons.attach_money,
             )),
         ...completions.map((c) => _DetailRow(
               texto: c.taskTitle,
               persona: _nameForMember(household, c.completedBy ?? c.assigneeUid),
-              color: _colorForMember(household, c.completedBy ?? c.assigneeUid),
+              color: _colorForMember(colors, household, c.completedBy ?? c.assigneeUid),
               icono: c.status == 'done' ? Icons.check_circle : Icons.cancel,
             )),
         ...programadas.map((t) => _DetailRow(
               texto: t.title,
               persona: _nameForMember(household, t.asignadoEnDia(day)),
-              color: _colorForMember(household, t.asignadoEnDia(day)),
+              color: _colorForMember(colors, household, t.asignadoEnDia(day)),
               icono: Icons.schedule,
               pendiente: true,
             )),
@@ -540,7 +546,7 @@ class _DetailRow extends StatelessWidget {
             child: Text(
               '$texto — $persona',
               style: TextStyle(
-                color: ConviveColors.paper,
+                color: context.colors.paper,
                 fontSize: 13,
                 fontStyle: pendiente ? FontStyle.italic : FontStyle.normal,
               ),

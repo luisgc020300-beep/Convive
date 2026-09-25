@@ -8,6 +8,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../theme/design_tokens.dart';
+import '../theme/theme_controller.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -21,27 +22,34 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     return Scaffold(
       appBar: AppBar(title: const Text('Ajustes')),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          Text('APARIENCIA', style: TextStyle(fontSize: 11, letterSpacing: 1.2, color: colors.paperMuted)),
+          const SizedBox(height: 8),
           Container(
-            decoration: BoxDecoration(
-              color: ConviveColors.cork,
-              borderRadius: BorderRadius.circular(14),
-            ),
+            decoration: BoxDecoration(color: colors.cork, borderRadius: BorderRadius.circular(14)),
+            child: const _SelectorDeTema(),
+          ),
+          const SizedBox(height: 20),
+          Text('CUENTA', style: TextStyle(fontSize: 11, letterSpacing: 1.2, color: colors.paperMuted)),
+          const SizedBox(height: 8),
+          Container(
+            decoration: BoxDecoration(color: colors.cork, borderRadius: BorderRadius.circular(14)),
             child: Column(
               children: [
                 ListTile(
-                  leading: const Icon(Icons.logout_rounded, color: ConviveColors.amber),
-                  title: const Text('Cerrar sesión', style: TextStyle(color: ConviveColors.amber)),
+                  leading: Icon(Icons.logout_rounded, color: colors.amber),
+                  title: Text('Cerrar sesión', style: TextStyle(color: colors.amber)),
                   onTap: _procesando ? null : _confirmarCerrarSesion,
                 ),
                 const Divider(height: 1),
                 ListTile(
-                  leading: const Icon(Icons.delete_forever_rounded, color: ConviveColors.rust),
-                  title: const Text('Eliminar cuenta', style: TextStyle(color: ConviveColors.rust)),
+                  leading: Icon(Icons.delete_forever_rounded, color: colors.rust),
+                  title: Text('Eliminar cuenta', style: TextStyle(color: colors.rust)),
                   onTap: _procesando ? null : _confirmarEliminarCuenta,
                 ),
               ],
@@ -70,15 +78,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _confirmarEliminarCuenta() async {
+    final colors = context.colors;
     final confirmar = await showDialog<bool>(
       context: context,
       barrierDismissible: false,
       builder: (ctx) => AlertDialog(
-        title: const Row(
+        title: Row(
           children: [
-            Icon(Icons.warning_rounded, color: ConviveColors.rust, size: 20),
-            SizedBox(width: 8),
-            Text('Eliminar cuenta'),
+            Icon(Icons.warning_rounded, color: colors.rust, size: 20),
+            const SizedBox(width: 8),
+            const Text('Eliminar cuenta'),
           ],
         ),
         content: const Column(
@@ -95,7 +104,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
           FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: ConviveColors.rust),
+            style: FilledButton.styleFrom(backgroundColor: colors.rust),
             onPressed: () => Navigator.pop(ctx, true),
             child: const Text('ELIMINAR'),
           ),
@@ -118,5 +127,66 @@ class _SettingsScreenState extends State<SettingsScreen> {
           : 'No se pudo eliminar la cuenta. Inténtalo de nuevo.';
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(mensaje)));
     }
+  }
+}
+
+class _SelectorDeTema extends StatelessWidget {
+  const _SelectorDeTema();
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = ThemeController.instance;
+    return AnimatedBuilder(
+      animation: controller,
+      builder: (context, _) => Column(
+        children: [
+          _OpcionTema(
+            icon: Icons.dark_mode_outlined,
+            titulo: 'Oscuro',
+            seleccionado: controller.mode == ThemeMode.dark,
+            onTap: () => controller.setMode(ThemeMode.dark),
+          ),
+          const Divider(height: 1),
+          _OpcionTema(
+            icon: Icons.light_mode_outlined,
+            titulo: 'Claro',
+            seleccionado: controller.mode == ThemeMode.light,
+            onTap: () => controller.setMode(ThemeMode.light),
+          ),
+          const Divider(height: 1),
+          _OpcionTema(
+            icon: Icons.smartphone_outlined,
+            titulo: 'Según el sistema',
+            seleccionado: controller.mode == ThemeMode.system,
+            onTap: () => controller.setMode(ThemeMode.system),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _OpcionTema extends StatelessWidget {
+  const _OpcionTema({
+    required this.icon,
+    required this.titulo,
+    required this.seleccionado,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String titulo;
+  final bool seleccionado;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    return ListTile(
+      leading: Icon(icon, color: seleccionado ? colors.amber : colors.paperMuted),
+      title: Text(titulo, style: TextStyle(color: seleccionado ? colors.amber : colors.paper)),
+      trailing: seleccionado ? Icon(Icons.check, color: colors.amber, size: 20) : null,
+      onTap: onTap,
+    );
   }
 }

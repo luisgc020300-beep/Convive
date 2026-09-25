@@ -15,7 +15,7 @@ Future<T?> showConviveSheet<T>({
   return showModalBottomSheet<T>(
     context: context,
     isScrollControlled: true,
-    backgroundColor: ConviveColors.cork,
+    backgroundColor: context.colors.cork,
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
     ),
@@ -37,7 +37,7 @@ Future<T?> showConviveSheet<T>({
                 height: 4,
                 margin: const EdgeInsets.only(bottom: 16),
                 decoration: BoxDecoration(
-                  color: ConviveColors.paperMuted.withValues(alpha: 0.4),
+                  color: context.colors.paperMuted.withValues(alpha: 0.4),
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),

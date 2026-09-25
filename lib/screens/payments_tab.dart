@@ -40,7 +40,7 @@ class PaymentsTab extends StatelessWidget {
             Row(
               children: [
                 IconButton(
-                  icon: const Icon(Icons.bar_chart_rounded, color: ConviveColors.mint, size: 20),
+                  icon: Icon(Icons.bar_chart_rounded, color: context.colors.mint, size: 20),
                   tooltip: 'Resumen de gastos',
                   onPressed: () => Navigator.push(
                     context,
@@ -49,8 +49,8 @@ class PaymentsTab extends StatelessWidget {
                 ),
                 TextButton.icon(
                   onPressed: () => _mostrarNuevoGasto(context, household),
-                  icon: const Icon(Icons.add, color: ConviveColors.mint),
-                  label: const Text('Nuevo', style: TextStyle(color: ConviveColors.mint)),
+                  icon: Icon(Icons.add, color: context.colors.mint),
+                  label: Text('Nuevo', style: TextStyle(color: context.colors.mint)),
                 ),
               ],
             ),
@@ -65,8 +65,8 @@ class PaymentsTab extends StatelessWidget {
             Text('Recordatorios de pago', style: Theme.of(context).textTheme.titleLarge),
             TextButton.icon(
               onPressed: () => _mostrarNuevoRecordatorio(context, household),
-              icon: const Icon(Icons.add, color: ConviveColors.mint),
-              label: const Text('Nuevo', style: TextStyle(color: ConviveColors.mint)),
+              icon: Icon(Icons.add, color: context.colors.mint),
+              label: Text('Nuevo', style: TextStyle(color: context.colors.mint)),
             ),
           ],
         ),
@@ -109,12 +109,12 @@ class PaymentsTab extends StatelessWidget {
                     selected: seleccionada,
                     onSelected: (_) => setState(() => categoria = cat),
                     avatar: Icon(cat.icon, size: 15,
-                        color: seleccionada ? const Color(0xFF0B2116) : ConviveColors.paperMuted),
+                        color: seleccionada ? const Color(0xFF0B2116) : context.colors.paperMuted),
                     label: Text(cat.label),
                     labelStyle: TextStyle(
-                        fontSize: 12.5, color: seleccionada ? const Color(0xFF0B2116) : ConviveColors.paper),
-                    selectedColor: ConviveColors.mint,
-                    backgroundColor: ConviveColors.corkDark,
+                        fontSize: 12.5, color: seleccionada ? const Color(0xFF0B2116) : context.colors.paper),
+                    selectedColor: context.colors.mint,
+                    backgroundColor: context.colors.corkDark,
                     side: BorderSide.none,
                   );
                 },
@@ -125,13 +125,13 @@ class PaymentsTab extends StatelessWidget {
               controller: amountCtrl,
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
               decoration: const InputDecoration(hintText: 'Importe total (€)'),
-              style: ConviveText.amount(fontSize: 16, color: ConviveColors.paper),
+              style: ConviveText.amount(fontSize: 16, color: context.colors.paper),
             ),
             const SizedBox(height: 12),
             DropdownButtonFormField<String>(
               initialValue: paidByUid,
               decoration: const InputDecoration(labelText: '¿Quién pagó?'),
-              dropdownColor: ConviveColors.cork,
+              dropdownColor: context.colors.cork,
               items: household.members
                   .map((uid) => DropdownMenuItem(
                         value: uid,
@@ -141,14 +141,14 @@ class PaymentsTab extends StatelessWidget {
               onChanged: (v) => setState(() => paidByUid = v ?? paidByUid),
             ),
             const SizedBox(height: 12),
-            const Align(
+            Align(
               alignment: Alignment.centerLeft,
-              child: Text('Repartir entre:', style: TextStyle(color: ConviveColors.paperMuted, fontSize: 13)),
+              child: Text('Repartir entre:', style: TextStyle(color: context.colors.paperMuted, fontSize: 13)),
             ),
             ...household.members.map((uid) => CheckboxListTile(
                   dense: true,
                   contentPadding: EdgeInsets.zero,
-                  activeColor: ConviveColors.mint,
+                  activeColor: context.colors.mint,
                   value: incluidos.contains(uid),
                   title: Text(household.memberProfiles[uid]?.displayName ?? 'Runner'),
                   onChanged: (v) => setState(() {
@@ -161,7 +161,7 @@ class PaymentsTab extends StatelessWidget {
                 )),
             const SizedBox(height: 8),
             FilledButton(
-              style: FilledButton.styleFrom(backgroundColor: ConviveColors.mint, foregroundColor: const Color(0xFF0B2116)),
+              style: FilledButton.styleFrom(backgroundColor: context.colors.mint, foregroundColor: const Color(0xFF0B2116)),
               onPressed: () async {
                 final amount = double.tryParse(amountCtrl.text.replaceAll(',', '.'));
                 if (descCtrl.text.trim().isEmpty || amount == null || amount <= 0 || incluidos.isEmpty) {
@@ -206,7 +206,7 @@ class PaymentsTab extends StatelessWidget {
           const SizedBox(height: 12),
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
-            activeThumbColor: ConviveColors.mint,
+            activeThumbColor: context.colors.mint,
             value: recurrente,
             title: const Text('Se repite cada mes'),
             onChanged: (v) => setState(() => recurrente = v),
@@ -215,7 +215,7 @@ class PaymentsTab extends StatelessWidget {
             DropdownButtonFormField<int>(
               initialValue: dueDay,
               decoration: const InputDecoration(labelText: 'Día del mes'),
-              dropdownColor: ConviveColors.cork,
+              dropdownColor: context.colors.cork,
               items: List.generate(28, (i) => i + 1)
                   .map((d) => DropdownMenuItem(value: d, child: Text('Día $d')))
                   .toList(),
@@ -225,7 +225,7 @@ class PaymentsTab extends StatelessWidget {
             ListTile(
               contentPadding: EdgeInsets.zero,
               title: Text('Fecha: ${_formatearFecha(dueDate)}'),
-              trailing: const Icon(Icons.calendar_today, size: 18, color: ConviveColors.mint),
+              trailing: Icon(Icons.calendar_today, size: 18, color: context.colors.mint),
               onTap: () async {
                 final elegida = await showDatePicker(
                   context: ctx,
@@ -238,7 +238,7 @@ class PaymentsTab extends StatelessWidget {
             ),
           const SizedBox(height: 8),
           FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: ConviveColors.mint, foregroundColor: const Color(0xFF0B2116)),
+            style: FilledButton.styleFrom(backgroundColor: context.colors.mint, foregroundColor: const Color(0xFF0B2116)),
             onPressed: () async {
               if (titleCtrl.text.trim().isEmpty) return;
               await ReminderService.addReminder(
@@ -280,7 +280,7 @@ class _ExpensesSection extends StatelessWidget {
         if (expenses.isEmpty) {
           return Text(
             'Todavía no hay gastos comunes registrados.',
-            style: TextStyle(color: ConviveColors.paperMuted),
+            style: TextStyle(color: context.colors.paperMuted),
           );
         }
         final balances = calcularBalances(expenses);
@@ -297,7 +297,7 @@ class _ExpensesSection extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
-                  color: ConviveColors.cork,
+                  color: context.colors.cork,
                   borderRadius: BorderRadius.circular(14),
                 ),
                 child: Column(
@@ -310,11 +310,11 @@ class _ExpensesSection extends StatelessWidget {
                       ),
                       Text(
                         '${_nombre(settlements[i].fromUid)} le debe a ${_nombre(settlements[i].toUid)}',
-                        style: const TextStyle(fontSize: 13, color: ConviveColors.paper),
+                        style: TextStyle(fontSize: 13, color: context.colors.paper),
                       ),
                       Align(
                         alignment: Alignment.centerRight,
-                        child: Text('${settlements[i].amount.toStringAsFixed(2)}€', style: ConviveText.amount(fontSize: 15, color: ConviveColors.mint)),
+                        child: Text('${settlements[i].amount.toStringAsFixed(2)}€', style: ConviveText.amount(fontSize: 15, color: context.colors.mint)),
                       ),
                     ],
                   ],
@@ -325,7 +325,7 @@ class _ExpensesSection extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
               decoration: BoxDecoration(
-                color: ConviveColors.cork,
+                color: context.colors.cork,
                 borderRadius: BorderRadius.circular(14),
               ),
               child: Column(
@@ -336,7 +336,7 @@ class _ExpensesSection extends StatelessWidget {
                       padding: const EdgeInsets.symmetric(vertical: 10),
                       child: Row(
                         children: [
-                          Icon(expenses[i].category.icon, size: 17, color: ConviveColors.paperMuted),
+                          Icon(expenses[i].category.icon, size: 17, color: context.colors.paperMuted),
                           const SizedBox(width: 10),
                           Expanded(
                             child: Column(
@@ -345,14 +345,15 @@ class _ExpensesSection extends StatelessWidget {
                                 Text(expenses[i].description, style: const TextStyle(fontWeight: FontWeight.w600)),
                                 const SizedBox(height: 2),
                                 Text('pagó ${_nombre(expenses[i].paidByUid)}',
-                                    style: TextStyle(fontSize: 11.5, color: ConviveColors.paperMuted)),
+                                    style: TextStyle(fontSize: 11.5, color: context.colors.paperMuted)),
                               ],
                             ),
                           ),
-                          Text('${expenses[i].amount.toStringAsFixed(2)}€', style: ConviveText.amount(fontSize: 15)),
+                          Text('${expenses[i].amount.toStringAsFixed(2)}€',
+                              style: ConviveText.amount(fontSize: 15, color: context.colors.paper)),
                           if (expenses[i].paidByUid == myUid)
                             IconButton(
-                              icon: const Icon(Icons.close, size: 16, color: ConviveColors.paperMuted),
+                              icon: Icon(Icons.close, size: 16, color: context.colors.paperMuted),
                               onPressed: () => ExpenseService.deleteExpense(household.id, expenses[i].id),
                             )
                           else
@@ -380,7 +381,7 @@ class _BalanceCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final cuadrado = balance.abs() < 0.005;
     final positivo = balance > 0;
-    final color = cuadrado ? ConviveColors.paperMuted : (positivo ? ConviveColors.mint : ConviveColors.rust);
+    final color = cuadrado ? context.colors.paperMuted : (positivo ? context.colors.mint : context.colors.rust);
     final etiqueta = cuadrado ? 'Estás en paz' : (positivo ? 'te deben' : 'debes');
     return Container(
       width: double.infinity,
@@ -392,7 +393,7 @@ class _BalanceCard extends StatelessWidget {
       ),
       child: Column(
         children: [
-          const Text('TU BALANCE', style: TextStyle(fontSize: 11, letterSpacing: 1.5, color: ConviveColors.paperMuted)),
+          Text('TU BALANCE', style: TextStyle(fontSize: 11, letterSpacing: 1.5, color: context.colors.paperMuted)),
           const SizedBox(height: 4),
           Text(
             cuadrado ? '0.00€' : '${positivo ? '+' : ''}${balance.toStringAsFixed(2)}€',
@@ -424,13 +425,13 @@ class _RemindersSection extends StatelessWidget {
         final reminders = [...(snapshot.data ?? [])]
           ..sort((a, b) => a.nextOccurrence().compareTo(b.nextOccurrence()));
         if (reminders.isEmpty) {
-          return Text('Sin recordatorios de pago.', style: TextStyle(color: ConviveColors.paperMuted));
+          return Text('Sin recordatorios de pago.', style: TextStyle(color: context.colors.paperMuted));
         }
         final myUid = FirebaseAuth.instance.currentUser?.uid;
         return Container(
           padding: const EdgeInsets.symmetric(horizontal: 14),
           decoration: BoxDecoration(
-            color: ConviveColors.cork,
+            color: context.colors.cork,
             borderRadius: BorderRadius.circular(14),
           ),
           child: Column(
@@ -444,8 +445,8 @@ class _RemindersSection extends StatelessWidget {
                       Container(
                         width: 34,
                         height: 34,
-                        decoration: BoxDecoration(color: ConviveColors.mint.withValues(alpha: 0.18), shape: BoxShape.circle),
-                        child: const Icon(Icons.event_repeat_outlined, size: 17, color: ConviveColors.mint),
+                        decoration: BoxDecoration(color: context.colors.mint.withValues(alpha: 0.18), shape: BoxShape.circle),
+                        child: Icon(Icons.event_repeat_outlined, size: 17, color: context.colors.mint),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
@@ -457,14 +458,14 @@ class _RemindersSection extends StatelessWidget {
                               reminders[i].recurring
                                   ? '${_formatearFecha(reminders[i].nextOccurrence())} · cada mes'
                                   : _formatearFecha(reminders[i].nextOccurrence()),
-                              style: TextStyle(fontSize: 12, color: ConviveColors.paperMuted),
+                              style: TextStyle(fontSize: 12, color: context.colors.paperMuted),
                             ),
                           ],
                         ),
                       ),
                       if (reminders[i].createdBy == myUid)
                         IconButton(
-                          icon: const Icon(Icons.close, size: 16, color: ConviveColors.paperMuted),
+                          icon: Icon(Icons.close, size: 16, color: context.colors.paperMuted),
                           onPressed: () => ReminderService.deleteReminder(household.id, reminders[i].id),
                         ),
                     ],

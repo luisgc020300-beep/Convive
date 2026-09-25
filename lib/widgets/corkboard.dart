@@ -22,7 +22,9 @@ class _CorkSpeckles extends CustomPainter {
       final dy = rnd.nextDouble() * size.height;
       final r = 0.4 + rnd.nextDouble() * 1.1;
       final dark = rnd.nextBool();
-      paint.color = (dark ? Colors.black : ConviveColors.paper)
+      // Vetas del corcho: independientes del tema, es una textura de
+      // material, no algo que deba leerse como texto.
+      paint.color = (dark ? Colors.black : Colors.white)
           .withValues(alpha: dark ? 0.14 : 0.05);
       canvas.drawCircle(Offset(dx, dy), r, paint);
     }
@@ -41,7 +43,7 @@ class CorkboardSurface extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: ConviveColors.corkDark,
+        color: context.colors.corkDark,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: Colors.black.withValues(alpha: 0.3), width: 6),
       ),

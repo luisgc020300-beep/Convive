@@ -42,7 +42,7 @@ class TasksTab extends StatelessWidget {
                     onAddTask: (day) => _mostrarNuevaTarea(context, household, day),
                   ),
                   const SizedBox(height: 20),
-                  Text('Hoy', style: Theme.of(context).textTheme.labelLarge?.copyWith(color: ConviveColors.paperMuted)),
+                  Text('Hoy', style: Theme.of(context).textTheme.labelLarge?.copyWith(color: context.colors.paperMuted)),
                   const SizedBox(height: 6),
                   if (tareasDeHoy.isEmpty)
                     const Padding(
@@ -89,7 +89,7 @@ class TasksTab extends StatelessWidget {
           DropdownButtonFormField<RecurrenceType>(
             initialValue: tipo,
             decoration: const InputDecoration(),
-            dropdownColor: ConviveColors.cork,
+            dropdownColor: context.colors.cork,
             items: RecurrenceType.values
                 .map((t) => DropdownMenuItem(value: t, child: Text(t.label)))
                 .toList(),
@@ -100,7 +100,7 @@ class TasksTab extends StatelessWidget {
             DropdownButtonFormField<int>(
               initialValue: diaSemana,
               decoration: const InputDecoration(labelText: 'Día de la semana'),
-              dropdownColor: ConviveColors.cork,
+              dropdownColor: context.colors.cork,
               items: List.generate(7, (i) => i + 1)
                   .map((d) => DropdownMenuItem(value: d, child: Text(_diasSemanaNombres[d - 1])))
                   .toList(),
@@ -156,9 +156,9 @@ class _TaskCard extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
-        color: ConviveColors.cork,
+        color: context.colors.cork,
         borderRadius: BorderRadius.circular(12),
-        border: Border(left: BorderSide(color: ConviveColors.amber.withValues(alpha: 0.8), width: 3)),
+        border: Border(left: BorderSide(color: context.colors.amber.withValues(alpha: 0.8), width: 3)),
       ),
       child: Row(
         children: [
@@ -169,20 +169,20 @@ class _TaskCard extends StatelessWidget {
                 Text(task.title, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
                 const SizedBox(height: 2),
                 Text('Le toca a $asignado',
-                    style: TextStyle(color: ConviveColors.paperMuted, fontSize: 12)),
+                    style: TextStyle(color: context.colors.paperMuted, fontSize: 12)),
               ],
             ),
           ),
           FilledButton.tonal(
             style: FilledButton.styleFrom(
               backgroundColor: task.completadaHoy
-                  ? ConviveColors.mint.withValues(alpha: 0.18)
-                  : (esMiTurno ? ConviveColors.amber.withValues(alpha: 0.22) : ConviveColors.corkDark),
+                  ? context.colors.mint.withValues(alpha: 0.18)
+                  : (esMiTurno ? context.colors.amber.withValues(alpha: 0.22) : context.colors.corkDark),
               foregroundColor: task.completadaHoy
-                  ? ConviveColors.mint
-                  : (esMiTurno ? ConviveColors.amber : ConviveColors.paperMuted),
-              disabledBackgroundColor: ConviveColors.mint.withValues(alpha: 0.18),
-              disabledForegroundColor: ConviveColors.mint,
+                  ? context.colors.mint
+                  : (esMiTurno ? context.colors.amber : context.colors.paperMuted),
+              disabledBackgroundColor: context.colors.mint.withValues(alpha: 0.18),
+              disabledForegroundColor: context.colors.mint,
             ),
             onPressed: task.completadaHoy
                 ? null
@@ -193,7 +193,7 @@ class _TaskCard extends StatelessWidget {
             child: Text(task.completadaHoy ? 'Hecha hoy' : (esMiTurno ? 'Hecho' : 'Marcar hecho')),
           ),
           IconButton(
-            icon: const Icon(Icons.delete_outline, size: 18, color: ConviveColors.paperMuted),
+            icon: Icon(Icons.delete_outline, size: 18, color: context.colors.paperMuted),
             onPressed: () => _confirmarBorrado(context, household, task),
           ),
         ],
@@ -210,7 +210,7 @@ class _TaskCard extends StatelessWidget {
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
           FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: ConviveColors.rust),
+            style: FilledButton.styleFrom(backgroundColor: context.colors.rust),
             onPressed: () => Navigator.pop(ctx, true),
             child: const Text('Borrar'),
           ),
@@ -240,8 +240,8 @@ class _NotesBoard extends StatelessWidget {
               alignment: Alignment.centerRight,
               child: TextButton.icon(
                 onPressed: () => _mostrarNuevaNota(context, household),
-                icon: const Icon(Icons.push_pin_outlined, color: ConviveColors.paper, size: 16),
-                label: const Text('Clavar nota', style: TextStyle(color: ConviveColors.paper)),
+                icon: Icon(Icons.push_pin_outlined, color: context.colors.paper, size: 16),
+                label: Text('Clavar nota', style: TextStyle(color: context.colors.paper)),
               ),
             ),
             StreamBuilder<List<ConviveNote>>(
@@ -254,7 +254,7 @@ class _NotesBoard extends StatelessWidget {
                     child: Center(
                       child: Text(
                         'El corcho está vacío. Clava la primera nota.',
-                        style: ConviveText.handwritten(fontSize: 16, color: ConviveColors.paperMuted),
+                        style: ConviveText.handwritten(fontSize: 16, color: context.colors.paperMuted),
                       ),
                     ),
                   );
