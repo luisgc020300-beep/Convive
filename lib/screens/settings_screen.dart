@@ -136,7 +136,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ],
       ),
     );
-    if (confirmar == true) await FirebaseAuth.instance.signOut();
+    if (confirmar != true) return;
+    await FirebaseAuth.instance.signOut();
+    // El cambio de sesión lo detecta el StreamBuilder de MaterialApp y ya
+    // muestra LoginScreen por debajo, pero esta pantalla sigue empujada
+    // encima en la pila de navegación -- hay que volver a la raíz para que
+    // se vea sin necesidad de pulsar "atrás" a mano.
+    if (!mounted) return;
+    Navigator.of(context).popUntil((route) => route.isFirst);
   }
 
   Future<void> _confirmarEliminarCuenta() async {
