@@ -73,6 +73,7 @@ ThemeData buildConviveTheme() {
       backgroundColor: ConviveColors.wall,
       foregroundColor: ConviveColors.paper,
       elevation: 0,
+      centerTitle: true,
     ),
     cardTheme: CardThemeData(
       color: ConviveColors.cork,
