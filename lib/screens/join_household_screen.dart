@@ -29,7 +29,11 @@ class _JoinHouseholdScreenState extends State<JoinHouseholdScreen> {
     setState(() { _cargando = true; _error = null; });
     try {
       await HouseholdService.joinHousehold(_codeCtrl.text.trim());
-      // La HouseholdGateScreen reacciona sola al stream de activeHouseholdId.
+      // La HouseholdGateScreen reacciona sola al stream de activeHouseholdId
+      // -- pero si esta pantalla se abrió por encima de otra (desde el
+      // selector de pisos, no solo desde el arranque en frío), hay que
+      // cerrarla para que se vea lo de debajo ya actualizado.
+      if (mounted) Navigator.of(context).pop();
     } on FirebaseFunctionsException catch (e) {
       setState(() => _error = switch (e.code) {
         'not-found' => 'No existe ningún piso con ese código.',

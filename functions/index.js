@@ -106,7 +106,10 @@ exports.createHousehold = onCall({ region: REGION }, async (request) => {
       createdAt: FieldValue.serverTimestamp(),
     });
     tx.set(db.collection('joinCodes').doc(joinCode), { householdId: householdRef.id });
-    tx.set(db.collection('users').doc(uid), { activeHouseholdId: householdRef.id }, { merge: true });
+    tx.set(db.collection('users').doc(uid), {
+      activeHouseholdId: householdRef.id,
+      householdIds: FieldValue.arrayUnion(householdRef.id),
+    }, { merge: true });
   });
 
   return { ok: true, householdId: householdRef.id, joinCode };
@@ -146,18 +149,22 @@ exports.joinHousehold = onCall({ region: REGION }, async (request) => {
       throw new HttpsError('not-found', 'El piso ya no existe.');
     }
     const data = houseSnap.data();
-    if ((data.members || []).includes(uid)) {
-      yaEraMiembro = true;
-      return;
+    yaEraMiembro = (data.members || []).includes(uid);
+    if (!yaEraMiembro) {
+      if ((data.members || []).length >= MAX_MIEMBROS_PISO) {
+        throw new HttpsError('failed-precondition', 'Este piso ya tiene el máximo de miembros.');
+      }
+      tx.update(householdRef, {
+        members: FieldValue.arrayUnion(uid),
+        [`memberProfiles.${uid}`]: { displayName, photoUrl, joinedAt: FieldValue.serverTimestamp() },
+      });
     }
-    if ((data.members || []).length >= MAX_MIEMBROS_PISO) {
-      throw new HttpsError('failed-precondition', 'Este piso ya tiene el máximo de miembros.');
-    }
-    tx.update(householdRef, {
-      members: FieldValue.arrayUnion(uid),
-      [`memberProfiles.${uid}`]: { displayName, photoUrl, joinedAt: FieldValue.serverTimestamp() },
-    });
-    tx.set(db.collection('users').doc(uid), { activeHouseholdId: householdId }, { merge: true });
+    // Entrar con un código, aunque ya fueras miembro, se trata como "quiero
+    // cambiar a este piso ahora" -- cambia el activo siempre.
+    tx.set(db.collection('users').doc(uid), {
+      activeHouseholdId: householdId,
+      householdIds: FieldValue.arrayUnion(householdId),
+    }, { merge: true });
   });
 
   return { ok: true, householdId, yaEraMiembro };
@@ -168,9 +175,9 @@ exports.joinHousehold = onCall({ region: REGION }, async (request) => {
 // =============================================================================
 // households/{hid} solo se puede escribir vía Cloud Function (ver
 // firestore.rules), así que un cambio de nickname necesita pasar por aquí
-// para sincronizarse también en el piso activo -- si no, el cambio se
-// quedaría solo en users/{uid} y nunca se vería reflejado en las notas o
-// tareas ya existentes de tu piso.
+// para sincronizarse en todos los pisos del usuario -- no solo el activo,
+// porque con varios pisos (ver más abajo) el mismo nombre debe verse igual
+// en cada uno, no solo en el que tengas abierto ahora mismo.
 exports.updateNickname = onCall({ region: REGION }, async (request) => {
   if (!request.auth) throw new HttpsError('unauthenticated', 'Debes estar autenticado.');
   const uid = request.auth.uid;
@@ -181,16 +188,64 @@ exports.updateNickname = onCall({ region: REGION }, async (request) => {
 
   const userRef = db.collection('users').doc(uid);
   const userSnap = await userRef.get();
-  const activeHouseholdId = userSnap.exists ? userSnap.data().activeHouseholdId : null;
+  const householdIds = userSnap.exists ? (userSnap.data().householdIds || []) : [];
 
   const batch = db.batch();
   batch.set(userRef, { displayName: nickname }, { merge: true });
-  if (activeHouseholdId) {
-    batch.update(db.collection('households').doc(activeHouseholdId), {
+  for (const hid of householdIds) {
+    batch.update(db.collection('households').doc(hid), {
       [`memberProfiles.${uid}.displayName`]: nickname,
     });
   }
   await batch.commit();
+
+  return { ok: true };
+});
+
+// =============================================================================
+// PISOS — cambiar de piso activo y salir de un piso
+// =============================================================================
+exports.switchActiveHousehold = onCall({ region: REGION }, async (request) => {
+  if (!request.auth) throw new HttpsError('unauthenticated', 'Debes estar autenticado.');
+  const uid = request.auth.uid;
+  const householdId = request.data?.householdId;
+  if (!householdId) throw new HttpsError('invalid-argument', 'Falta el piso.');
+
+  const houseSnap = await db.collection('households').doc(householdId).get();
+  if (!houseSnap.exists || !(houseSnap.data().members || []).includes(uid)) {
+    throw new HttpsError('permission-denied', 'No perteneces a ese piso.');
+  }
+  await db.collection('users').doc(uid).set({ activeHouseholdId: householdId }, { merge: true });
+  return { ok: true };
+});
+
+exports.leaveHousehold = onCall({ region: REGION }, async (request) => {
+  if (!request.auth) throw new HttpsError('unauthenticated', 'Debes estar autenticado.');
+  const uid = request.auth.uid;
+  const householdId = request.data?.householdId;
+  if (!householdId) throw new HttpsError('invalid-argument', 'Falta el piso.');
+
+  const householdRef = db.collection('households').doc(householdId);
+  const userRef = db.collection('users').doc(uid);
+
+  await db.runTransaction(async (tx) => {
+    const [houseSnap, userSnap] = await Promise.all([tx.get(householdRef), tx.get(userRef)]);
+    if (houseSnap.exists) {
+      tx.update(householdRef, {
+        members: FieldValue.arrayRemove(uid),
+        [`memberProfiles.${uid}`]: FieldValue.delete(),
+      });
+    }
+    const householdIds = ((userSnap.data() || {}).householdIds || []).filter((id) => id !== householdId);
+    const eraActivo = (userSnap.data() || {}).activeHouseholdId === householdId;
+    tx.set(userRef, {
+      householdIds: FieldValue.arrayRemove(householdId),
+      // Si te vas del que tenías abierto, se cambia solo a otro que te
+      // quede (o a ninguno) -- no puedes quedarte "viendo" un piso del que
+      // ya no formas parte.
+      activeHouseholdId: eraActivo ? (householdIds[0] || null) : (userSnap.data() || {}).activeHouseholdId,
+    }, { merge: true });
+  });
 
   return { ok: true };
 });

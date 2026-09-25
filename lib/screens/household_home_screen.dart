@@ -9,6 +9,8 @@ import '../models/household.dart';
 import '../services/household_service.dart';
 import '../theme/design_tokens.dart';
 import 'chat_tab.dart';
+import 'create_household_screen.dart';
+import 'join_household_screen.dart';
 import 'notification_prefs_screen.dart';
 import 'payments_tab.dart';
 import 'settings_screen.dart';
@@ -134,54 +136,167 @@ class _PisoTabState extends State<_PisoTab> {
   @override
   Widget build(BuildContext context) {
     final household = widget.household;
-    return Padding(
+    final colors = context.colors;
+    return ListView(
       padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('Tu nombre en el piso', style: Theme.of(context).textTheme.titleSmall),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: _nicknameCtrl,
-                  decoration: const InputDecoration(hintText: 'Cómo te ven tus compañeros'),
-                ),
+      children: [
+        Text('Tu nombre en el piso', style: Theme.of(context).textTheme.titleSmall),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(
+              child: TextField(
+                controller: _nicknameCtrl,
+                decoration: const InputDecoration(hintText: 'Cómo te ven tus compañeros'),
               ),
-              const SizedBox(width: 8),
-              FilledButton(
-                onPressed: _guardando ? null : _guardarNickname,
-                child: _guardando
-                    ? const SizedBox(
-                        width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
-                    : const Text('Guardar'),
-              ),
-            ],
-          ),
-          const SizedBox(height: 20),
-          Text('Código de invitación: ${household.joinCode}',
-              style: Theme.of(context).textTheme.titleMedium),
-          const SizedBox(height: 16),
-          Text('Compañeros (${household.members.length})',
-              style: Theme.of(context).textTheme.titleSmall),
-          const SizedBox(height: 8),
-          Expanded(
-            child: ListView(
-              children: household.members.map((uid) {
-                final profile = household.memberProfiles[uid];
-                return ListTile(
-                  leading: const Icon(Icons.person_outline),
-                  title: Text(profile?.displayName ?? 'Runner'),
-                  trailing: uid == household.ownerUid
-                      ? const Chip(label: Text('Dueño'))
-                      : null,
-                );
-              }).toList(),
             ),
+            const SizedBox(width: 8),
+            FilledButton(
+              onPressed: _guardando ? null : _guardarNickname,
+              child: _guardando
+                  ? const SizedBox(
+                      width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                  : const Text('Guardar'),
+            ),
+          ],
+        ),
+        const SizedBox(height: 24),
+        Text('Tus pisos', style: Theme.of(context).textTheme.titleSmall),
+        const SizedBox(height: 8),
+        _MisPisos(activeHouseholdId: household.id),
+        const SizedBox(height: 24),
+        Text('Código de invitación: ${household.joinCode}',
+            style: Theme.of(context).textTheme.titleMedium),
+        const SizedBox(height: 16),
+        Text('Compañeros (${household.members.length})',
+            style: Theme.of(context).textTheme.titleSmall),
+        const SizedBox(height: 8),
+        ...household.members.map((uid) {
+          final profile = household.memberProfiles[uid];
+          return ListTile(
+            leading: const Icon(Icons.person_outline),
+            title: Text(profile?.displayName ?? 'Runner'),
+            trailing: uid == household.ownerUid ? const Chip(label: Text('Dueño')) : null,
+          );
+        }),
+        const SizedBox(height: 12),
+        OutlinedButton.icon(
+          onPressed: () => _confirmarSalir(context, household),
+          icon: Icon(Icons.logout, size: 18, color: colors.rust),
+          label: Text('Salir de este piso', style: TextStyle(color: colors.rust)),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _confirmarSalir(BuildContext context, Household household) async {
+    final confirmar = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('¿Salir de este piso?'),
+        content: Text('Dejarás de ver "${household.name}". Podrás volver a unirte con el código si lo necesitas.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: context.colors.rust),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Salir'),
           ),
         ],
       ),
+    );
+    if (confirmar == true) {
+      await HouseholdService.leaveHousehold(household.id);
+    }
+  }
+}
+
+class _MisPisos extends StatelessWidget {
+  const _MisPisos({required this.activeHouseholdId});
+
+  final String activeHouseholdId;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    return StreamBuilder<List<String>>(
+      stream: HouseholdService.streamMyHouseholdIds(),
+      builder: (context, snapshot) {
+        final ids = snapshot.data ?? [activeHouseholdId];
+        return Container(
+          decoration: BoxDecoration(color: colors.cork, borderRadius: BorderRadius.circular(14)),
+          child: Column(
+            children: [
+              ...ids.map((id) => _PisoRow(householdId: id, esActivo: id == activeHouseholdId)),
+              const Divider(height: 1),
+              ListTile(
+                leading: Icon(Icons.add, color: colors.amber),
+                title: Text('Crear o unirme a otro piso', style: TextStyle(color: colors.amber)),
+                onTap: () => _mostrarOpciones(context),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _mostrarOpciones(BuildContext context) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: context.colors.cork,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.add_home_outlined),
+              title: const Text('Crear un piso nuevo'),
+              onTap: () {
+                Navigator.pop(ctx);
+                Navigator.push(context, MaterialPageRoute(builder: (_) => const CreateHouseholdScreen()));
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.meeting_room_outlined),
+              title: const Text('Unirme con un código'),
+              onTap: () {
+                Navigator.pop(ctx);
+                Navigator.push(context, MaterialPageRoute(builder: (_) => const JoinHouseholdScreen()));
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PisoRow extends StatelessWidget {
+  const _PisoRow({required this.householdId, required this.esActivo});
+
+  final String householdId;
+  final bool esActivo;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    return StreamBuilder<Household>(
+      stream: HouseholdService.streamHousehold(householdId),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) return const SizedBox.shrink();
+        final household = snapshot.data!;
+        return ListTile(
+          leading: Icon(Icons.home_outlined, color: esActivo ? colors.amber : colors.paperMuted),
+          title: Text(household.name, style: TextStyle(color: esActivo ? colors.amber : colors.paper)),
+          subtitle: Text('${household.members.length} ${household.members.length == 1 ? 'persona' : 'personas'}'),
+          trailing: esActivo
+              ? Chip(label: const Text('Activo'), backgroundColor: colors.amber.withValues(alpha: 0.18))
+              : null,
+          onTap: esActivo ? null : () => HouseholdService.switchActiveHousehold(householdId),
+        );
+      },
     );
   }
 }

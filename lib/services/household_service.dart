@@ -17,6 +17,27 @@ class HouseholdService {
         (doc) => doc.data()?['activeHouseholdId'] as String?);
   }
 
+  /// Todos los pisos a los que pertenece el usuario (a diferencia del
+  /// activo, que es solo el que tiene abierto ahora mismo).
+  static Stream<List<String>> streamMyHouseholdIds() {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return Stream.value(const []);
+    return _db.collection('users').doc(uid).snapshots().map(
+        (doc) => (doc.data()?['householdIds'] as List?)?.cast<String>() ?? const []);
+  }
+
+  static Future<void> switchActiveHousehold(String householdId) async {
+    final callable = FirebaseFunctions.instanceFor(region: _region)
+        .httpsCallable('switchActiveHousehold');
+    await callable.call<Map<String, dynamic>>({'householdId': householdId});
+  }
+
+  static Future<void> leaveHousehold(String householdId) async {
+    final callable = FirebaseFunctions.instanceFor(region: _region)
+        .httpsCallable('leaveHousehold');
+    await callable.call<Map<String, dynamic>>({'householdId': householdId});
+  }
+
   static Stream<Household> streamHousehold(String householdId) {
     return _db
         .collection('households')
@@ -66,6 +87,7 @@ class HouseholdService {
       'displayName': displayName,
       'photoUrl': null,
       'activeHouseholdId': null,
+      'householdIds': <String>[],
       'createdAt': FieldValue.serverTimestamp(),
     });
   }

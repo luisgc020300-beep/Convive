@@ -57,7 +57,11 @@ class _CreateHouseholdScreenState extends State<CreateHouseholdScreen> {
         ),
       );
       // La HouseholdGateScreen reacciona sola al stream de activeHouseholdId
-      // y navega al piso — no hace falta Navigator.pop aquí.
+      // y cambia el piso mostrado -- pero si esta pantalla se abrió por
+      // encima de otra (p.ej. desde el selector de pisos en la pestaña
+      // Piso, no solo desde el arranque en frío), hay que cerrarla para que
+      // se vea lo de debajo ya actualizado.
+      if (mounted) Navigator.of(context).pop();
     } catch (e) {
       setState(() => _error = 'No se pudo crear el piso: $e');
     } finally {
