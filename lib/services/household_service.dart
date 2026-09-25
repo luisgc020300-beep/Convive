@@ -106,6 +106,28 @@ class HouseholdService {
     await callable.call<Map<String, dynamic>>({'nickname': nickname});
   }
 
+  /// Repara `householdIds` para cuentas que ya tenían un piso antes de que
+  /// existiera el soporte multi-piso: ese piso vive en `members` del propio
+  /// piso pero nunca se escribió en el array del usuario, así que al crear
+  /// un segundo piso (primer arrayUnion real de esa cuenta) el array
+  /// arrancaba vacío y solo quedaba el nuevo -- el piso viejo no se borra,
+  /// solo deja de listarse en "Tus pisos". Barata (una query) e idempotente,
+  /// se ejecuta en cada arranque igual que [asegurarPerfilUsuario].
+  static Future<void> reconciliarHouseholdIds() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+    final query = await _db.collection('households').where('members', arrayContains: uid).get();
+    if (query.docs.isEmpty) return;
+    final idsReales = query.docs.map((d) => d.id).toSet();
+    final userSnap = await _db.collection('users').doc(uid).get();
+    final idsActuales = (userSnap.data()?['householdIds'] as List?)?.cast<String>().toSet() ?? {};
+    final faltantes = idsReales.difference(idsActuales);
+    if (faltantes.isEmpty) return;
+    await _db.collection('users').doc(uid).set({
+      'householdIds': FieldValue.arrayUnion(faltantes.toList()),
+    }, SetOptions(merge: true));
+  }
+
   /// Crea (o actualiza) el documento de perfil del usuario tras el login.
   static Future<void> asegurarPerfilUsuario() async {
     final user = FirebaseAuth.instance.currentUser;

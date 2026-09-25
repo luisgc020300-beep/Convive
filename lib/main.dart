@@ -39,7 +39,10 @@ void main() async {
   final localeController = await LocaleController.load();
 
   FirebaseAuth.instance.authStateChanges().listen((user) {
-    if (user != null) HouseholdService.asegurarPerfilUsuario();
+    if (user != null) {
+      HouseholdService.asegurarPerfilUsuario();
+      HouseholdService.reconciliarHouseholdIds();
+    }
   });
 
   runApp(ConviveApp(themeController: themeController, localeController: localeController));
