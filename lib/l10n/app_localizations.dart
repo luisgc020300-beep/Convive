@@ -764,6 +764,18 @@ abstract class AppLocalizations {
   /// **'CUENTA'**
   String get settingsAccount;
 
+  /// No description provided for @settingsNotifications.
+  ///
+  /// In es, this message translates to:
+  /// **'Notificaciones'**
+  String get settingsNotifications;
+
+  /// No description provided for @settingsNotificationsSubtitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Tareas, pagos y mensajes'**
+  String get settingsNotificationsSubtitle;
+
   /// No description provided for @settingsSignOut.
   ///
   /// In es, this message translates to:

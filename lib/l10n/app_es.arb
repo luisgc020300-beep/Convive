@@ -131,6 +131,8 @@
   "settingsAppearance": "Apariencia",
   "settingsLanguage": "Idioma",
   "settingsAccount": "CUENTA",
+  "settingsNotifications": "Notificaciones",
+  "settingsNotificationsSubtitle": "Tareas, pagos y mensajes",
   "settingsSignOut": "Cerrar sesión",
   "settingsSignOutConfirm": "¿Cerrar sesión?",
   "settingsDeleteAccount": "Eliminar cuenta",

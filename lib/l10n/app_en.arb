@@ -131,6 +131,8 @@
   "settingsAppearance": "Appearance",
   "settingsLanguage": "Language",
   "settingsAccount": "ACCOUNT",
+  "settingsNotifications": "Notifications",
+  "settingsNotificationsSubtitle": "Tasks, payments and messages",
   "settingsSignOut": "Sign out",
   "settingsSignOutConfirm": "Sign out?",
   "settingsDeleteAccount": "Delete account",

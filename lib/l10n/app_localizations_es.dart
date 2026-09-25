@@ -364,6 +364,12 @@ class AppLocalizationsEs extends AppLocalizations {
   String get settingsAccount => 'CUENTA';
 
   @override
+  String get settingsNotifications => 'Notificaciones';
+
+  @override
+  String get settingsNotificationsSubtitle => 'Tareas, pagos y mensajes';
+
+  @override
   String get settingsSignOut => 'Cerrar sesión';
 
   @override
