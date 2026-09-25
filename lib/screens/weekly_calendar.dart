@@ -1,8 +1,9 @@
 // lib/screens/weekly_calendar.dart
 //
-// Calendario semanal de tareas: una fila de días tocables (lunes a domingo)
-// más un panel de detalle del día seleccionado, desde el que también se
-// añaden tareas nuevas ancladas a ese día. Gracias al sistema de ancla de
+// Calendario de tareas: por defecto una fila de días tocables (semana
+// actual) que se puede desplegar a mes completo con el botón de abajo, y
+// un panel de detalle del día seleccionado desde el que también se añaden
+// tareas nuevas ancladas a ese día. Gracias al sistema de ancla de
 // ConviveTask (ver lib/models/task.dart), el detalle de un día -- pasado,
 // hoy o futuro -- se calcula por aritmética, no por suposición: para
 // tareas semanales y "cada X días" sí podemos decir honestamente "esto
@@ -22,6 +23,10 @@ const _diasSemana = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
 const _meses = [
   'ene', 'feb', 'mar', 'abr', 'may', 'jun',
   'jul', 'ago', 'sep', 'oct', 'nov', 'dic',
+];
+const _mesesLargos = [
+  'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
+  'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre',
 ];
 const _memberColors = [
   ConviveColors.amber, ConviveColors.coral, ConviveColors.mint,
@@ -43,10 +48,21 @@ bool _sameDay(DateTime a, DateTime b) =>
 
 // Para un recordatorio recurrente, comprueba el día del mes en vez de
 // "próxima ocurrencia desde hoy" -- así aparece correctamente sea cual sea
-// la semana que se esté navegando, no solo la más próxima.
+// la semana/mes que se esté navegando, no solo la más próxima.
 bool _reminderOcurreEnDia(PaymentReminder r, DateTime day) {
   if (r.recurring) return day.day == (r.dueDay ?? 1).clamp(1, 28);
   return r.dueDate != null && _sameDay(r.dueDate!, day);
+}
+
+enum _DayState { done, missed, scheduled, empty }
+
+_DayState _estadoParaDia(DateTime day, List<ConviveTask> tasks, List<TaskCompletion> completions) {
+  final resueltas = completions.where((c) => c.occurrenceDate != null && _sameDay(c.occurrenceDate!, day));
+  if (resueltas.any((c) => c.status == 'done')) return _DayState.done;
+  if (resueltas.any((c) => c.status == 'missed')) return _DayState.missed;
+  final resueltasIds = resueltas.map((c) => c.taskId).toSet();
+  if (tasks.any((t) => t.ocurreEnDia(day) && !resueltasIds.contains(t.id))) return _DayState.scheduled;
+  return _DayState.empty;
 }
 
 class WeeklyCalendar extends StatefulWidget {
@@ -67,6 +83,8 @@ class WeeklyCalendar extends StatefulWidget {
 
 class _WeeklyCalendarState extends State<WeeklyCalendar> {
   int _weekOffset = 0;
+  int _monthOffset = 0;
+  bool _expandido = false;
   late DateTime _selectedDay = _todayMidnight();
 
   static DateTime _todayMidnight() {
@@ -74,14 +92,38 @@ class _WeeklyCalendarState extends State<WeeklyCalendar> {
     return DateTime(n.year, n.month, n.day);
   }
 
+  void _alternarExpandido() {
+    setState(() {
+      _expandido = !_expandido;
+      _weekOffset = 0;
+      _monthOffset = 0;
+      _selectedDay = _todayMidnight();
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final today = _todayMidnight();
-    final monday = today.subtract(Duration(days: today.weekday - 1));
-    final weekStart = monday.add(Duration(days: 7 * _weekOffset));
-    final days = List.generate(7, (i) => weekStart.add(Duration(days: i)));
-    if (!days.any((d) => _sameDay(d, _selectedDay))) {
-      _selectedDay = days.first;
+
+    final List<DateTime> diasSemana;
+    final List<DateTime> diasMes;
+    final DateTime primerDiaMes;
+    if (_expandido) {
+      final base = DateTime(today.year, today.month + _monthOffset);
+      primerDiaMes = DateTime(base.year, base.month, 1);
+      final ultimoDia = DateTime(base.year, base.month + 1, 0);
+      diasMes = List.generate(ultimoDia.day, (i) => DateTime(base.year, base.month, i + 1));
+      diasSemana = const [];
+    } else {
+      final monday = today.subtract(Duration(days: today.weekday - 1));
+      final weekStart = monday.add(Duration(days: 7 * _weekOffset));
+      diasSemana = List.generate(7, (i) => weekStart.add(Duration(days: i)));
+      diasMes = const [];
+      primerDiaMes = today;
+    }
+    final diasVisibles = _expandido ? diasMes : diasSemana;
+    if (!diasVisibles.any((d) => _sameDay(d, _selectedDay))) {
+      _selectedDay = diasVisibles.first;
     }
 
     return CorkboardSurface(
@@ -103,49 +145,63 @@ class _WeeklyCalendarState extends State<WeeklyCalendar> {
                       children: [
                         IconButton(
                           icon: const Icon(Icons.chevron_left, color: ConviveColors.paper),
-                          onPressed: () => setState(() => _weekOffset--),
+                          onPressed: () => setState(() =>
+                              _expandido ? _monthOffset-- : _weekOffset--),
                         ),
                         Text(
-                          _weekOffset == 0
-                              ? 'Esta semana'
-                              : '${days.first.day} ${_meses[days.first.month - 1]} — ${days.last.day} ${_meses[days.last.month - 1]}',
+                          _expandido
+                              ? '${_mesesLargos[primerDiaMes.month - 1]} ${primerDiaMes.year}'
+                              : (_weekOffset == 0
+                                  ? 'Esta semana'
+                                  : '${diasSemana.first.day} ${_meses[diasSemana.first.month - 1]} — ${diasSemana.last.day} ${_meses[diasSemana.last.month - 1]}'),
                           style: Theme.of(context).textTheme.labelLarge,
                         ),
                         IconButton(
                           icon: const Icon(Icons.chevron_right, color: ConviveColors.paper),
-                          onPressed: () => setState(() => _weekOffset++),
+                          onPressed: () => setState(() =>
+                              _expandido ? _monthOffset++ : _weekOffset++),
                         ),
                       ],
                     ),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: List.generate(7, (i) {
-                        final day = days[i];
-                        final resueltas = completions
-                            .where((c) => c.occurrenceDate != null && _sameDay(c.occurrenceDate!, day))
-                            .toList();
-                        final hecha = resueltas.any((c) => c.status == 'done');
-                        final fallada = resueltas.any((c) => c.status == 'missed');
-                        final programada = widget.tasks.any((t) =>
-                            t.ocurreEnDia(day) && !resueltas.any((c) => c.taskId == t.id));
-                        final tieneRecordatorio = reminders.any((r) => _reminderOcurreEnDia(r, day));
-                        return _DayDot(
-                          label: _diasSemana[i],
-                          number: day.day,
-                          esHoy: _sameDay(day, today),
-                          seleccionado: _sameDay(day, _selectedDay),
-                          estado: hecha
-                              ? _DayState.done
-                              : fallada
-                                  ? _DayState.missed
-                                  : programada
-                                      ? _DayState.scheduled
-                                      : _DayState.empty,
-                          tieneRecordatorio: tieneRecordatorio,
-                          onTap: () => setState(() => _selectedDay = day),
-                        );
-                      }),
-                    ),
+                    if (_expandido) ...[
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceAround,
+                        children: _diasSemana
+                            .map((l) => SizedBox(
+                                  width: 30,
+                                  child: Text(l,
+                                      textAlign: TextAlign.center,
+                                      style: const TextStyle(
+                                          fontSize: 10, fontWeight: FontWeight.w700, color: ConviveColors.paperMuted)),
+                                ))
+                            .toList(),
+                      ),
+                      const SizedBox(height: 4),
+                      _MonthGrid(
+                        primerDiaMes: primerDiaMes,
+                        dias: diasMes,
+                        today: today,
+                        selectedDay: _selectedDay,
+                        estadoParaDia: (d) => _estadoParaDia(d, widget.tasks, completions),
+                        tieneRecordatorio: (d) => reminders.any((r) => _reminderOcurreEnDia(r, d)),
+                        onTap: (d) => setState(() => _selectedDay = d),
+                      ),
+                    ] else
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: List.generate(7, (i) {
+                          final day = diasSemana[i];
+                          return _DayDot(
+                            label: _diasSemana[i],
+                            number: day.day,
+                            esHoy: _sameDay(day, today),
+                            seleccionado: _sameDay(day, _selectedDay),
+                            estado: _estadoParaDia(day, widget.tasks, completions),
+                            tieneRecordatorio: reminders.any((r) => _reminderOcurreEnDia(r, day)),
+                            onTap: () => setState(() => _selectedDay = day),
+                          );
+                        }),
+                      ),
                     const SizedBox(height: 12),
                     _DayDetail(
                       household: widget.household,
@@ -157,16 +213,33 @@ class _WeeklyCalendarState extends State<WeeklyCalendar> {
                       reminders: reminders.where((r) => _reminderOcurreEnDia(r, _selectedDay)).toList(),
                     ),
                     const SizedBox(height: 8),
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: TextButton.icon(
-                        onPressed: () => widget.onAddTask(_selectedDay),
-                        icon: const Icon(Icons.add, size: 16, color: ConviveColors.amber),
-                        label: Text(
-                          'Añadir tarea para el ${_diasSemana[_selectedDay.weekday - 1]} ${_selectedDay.day}',
-                          style: const TextStyle(color: ConviveColors.amber, fontSize: 12.5),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          child: TextButton.icon(
+                            onPressed: () => widget.onAddTask(_selectedDay),
+                            icon: const Icon(Icons.add, size: 16, color: ConviveColors.amber),
+                            label: Text(
+                              'Añadir tarea para el ${_diasSemana[_selectedDay.weekday - 1]} ${_selectedDay.day}',
+                              style: const TextStyle(color: ConviveColors.amber, fontSize: 12.5),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
                         ),
-                      ),
+                        TextButton.icon(
+                          onPressed: _alternarExpandido,
+                          icon: Icon(
+                            _expandido ? Icons.expand_less : Icons.expand_more,
+                            size: 18,
+                            color: ConviveColors.paperMuted,
+                          ),
+                          label: Text(
+                            _expandido ? 'Semana' : 'Mes',
+                            style: const TextStyle(color: ConviveColors.paperMuted, fontSize: 12.5),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 );
@@ -179,7 +252,124 @@ class _WeeklyCalendarState extends State<WeeklyCalendar> {
   }
 }
 
-enum _DayState { done, missed, scheduled, empty }
+class _MonthGrid extends StatelessWidget {
+  const _MonthGrid({
+    required this.primerDiaMes,
+    required this.dias,
+    required this.today,
+    required this.selectedDay,
+    required this.estadoParaDia,
+    required this.tieneRecordatorio,
+    required this.onTap,
+  });
+
+  final DateTime primerDiaMes;
+  final List<DateTime> dias;
+  final DateTime today;
+  final DateTime selectedDay;
+  final _DayState Function(DateTime) estadoParaDia;
+  final bool Function(DateTime) tieneRecordatorio;
+  final void Function(DateTime) onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final huecosIniciales = primerDiaMes.weekday - 1; // lunes=1 -> 0 huecos
+    final celdas = <Widget>[
+      for (var i = 0; i < huecosIniciales; i++) const SizedBox(),
+      for (final dia in dias)
+        _MonthDayCell(
+          number: dia.day,
+          esHoy: _sameDay(dia, today),
+          seleccionado: _sameDay(dia, selectedDay),
+          estado: estadoParaDia(dia),
+          tieneRecordatorio: tieneRecordatorio(dia),
+          onTap: () => onTap(dia),
+        ),
+    ];
+    return GridView.count(
+      crossAxisCount: 7,
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      mainAxisSpacing: 2,
+      crossAxisSpacing: 2,
+      childAspectRatio: 0.85,
+      children: celdas,
+    );
+  }
+}
+
+class _MonthDayCell extends StatelessWidget {
+  const _MonthDayCell({
+    required this.number,
+    required this.esHoy,
+    required this.seleccionado,
+    required this.estado,
+    required this.tieneRecordatorio,
+    required this.onTap,
+  });
+
+  final int number;
+  final bool esHoy;
+  final bool seleccionado;
+  final _DayState estado;
+  final bool tieneRecordatorio;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final dotColor = switch (estado) {
+      _DayState.done => ConviveColors.amber,
+      _DayState.missed => ConviveColors.rust,
+      _DayState.scheduled => ConviveColors.paperMuted,
+      _DayState.empty => ConviveColors.paperMuted.withValues(alpha: 0.3),
+    };
+    final relleno = estado != _DayState.scheduled;
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        margin: const EdgeInsets.all(1),
+        decoration: BoxDecoration(
+          color: seleccionado ? ConviveColors.amber.withValues(alpha: 0.18) : null,
+          borderRadius: BorderRadius.circular(8),
+          border: seleccionado ? Border.all(color: ConviveColors.amber, width: 1.2) : null,
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              '$number',
+              style: TextStyle(
+                fontSize: 12.5,
+                color: esHoy ? ConviveColors.amber : ConviveColors.paper,
+                fontWeight: esHoy ? FontWeight.w800 : FontWeight.w500,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 5,
+                  height: 5,
+                  decoration: BoxDecoration(
+                    color: relleno ? dotColor : Colors.transparent,
+                    shape: BoxShape.circle,
+                    border: relleno ? null : Border.all(color: dotColor, width: 0.8),
+                  ),
+                ),
+                if (tieneRecordatorio) ...[
+                  const SizedBox(width: 2),
+                  const Icon(Icons.attach_money, size: 7, color: ConviveColors.mint),
+                ],
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
 
 class _DayDot extends StatelessWidget {
   const _DayDot({
