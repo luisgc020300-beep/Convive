@@ -5,15 +5,12 @@
 // propósito, no se pasa por encima sin querer.
 import 'package:flutter/material.dart';
 
+import '../l10n/date_names.dart';
+import '../l10n/l10n.dart';
 import '../models/expense.dart';
 import '../models/household.dart';
 import '../services/expense_service.dart';
 import '../theme/design_tokens.dart';
-
-const _mesesNombres = [
-  'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
-  'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre',
-];
 
 class ExpensesSummaryScreen extends StatefulWidget {
   const ExpensesSummaryScreen({required this.household, super.key});
@@ -29,8 +26,9 @@ class _ExpensesSummaryScreenState extends State<ExpensesSummaryScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return Scaffold(
-      appBar: AppBar(title: const Text('Resumen de gastos')),
+      appBar: AppBar(title: Text(l10n.paymentsSummaryTitle)),
       body: StreamBuilder<List<Expense>>(
         stream: ExpenseService.streamExpensesForMonth(widget.household.id, _mes),
         builder: (context, snapshot) {
@@ -51,7 +49,7 @@ class _ExpensesSummaryScreenState extends State<ExpensesSummaryScreen> {
                     onPressed: () => setState(() => _mes = DateTime(_mes.year, _mes.month - 1)),
                   ),
                   Text(
-                    '${_mesesNombres[_mes.month - 1]} ${_mes.year}',
+                    '${mesesLargos(context)[_mes.month - 1]} ${_mes.year}',
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
                   IconButton(
@@ -69,7 +67,7 @@ class _ExpensesSummaryScreenState extends State<ExpensesSummaryScreen> {
               else if (gastos.isEmpty)
                 Padding(
                   padding: const EdgeInsets.symmetric(vertical: 24),
-                  child: Text('Sin gastos ese mes.', style: TextStyle(color: context.colors.paperMuted)),
+                  child: Text(l10n.paymentsNoExpensesMonth, style: TextStyle(color: context.colors.paperMuted)),
                 )
               else ...[
                 Container(
@@ -82,7 +80,7 @@ class _ExpensesSummaryScreenState extends State<ExpensesSummaryScreen> {
                   ),
                   child: Column(
                     children: [
-                      Text('TOTAL DEL PISO',
+                      Text(l10n.paymentsHouseholdTotal,
                           style: TextStyle(fontSize: 11, letterSpacing: 1.5, color: context.colors.paperMuted)),
                       const SizedBox(height: 4),
                       Text('${total.toStringAsFixed(2)}€',
@@ -103,7 +101,7 @@ class _ExpensesSummaryScreenState extends State<ExpensesSummaryScreen> {
                           children: [
                             Icon(cat.icon, size: 16, color: context.colors.paperMuted),
                             const SizedBox(width: 8),
-                            Expanded(child: Text(cat.label, style: const TextStyle(fontWeight: FontWeight.w600))),
+                            Expanded(child: Text(cat.label(l10n), style: const TextStyle(fontWeight: FontWeight.w600))),
                             Text('${(proporcion * 100).round()}%',
                                 style: TextStyle(fontSize: 12, color: context.colors.paperMuted)),
                             const SizedBox(width: 8),

@@ -3,6 +3,7 @@ import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../l10n/l10n.dart';
 import '../services/household_service.dart';
 
 class JoinHouseholdScreen extends StatefulWidget {
@@ -27,6 +28,7 @@ class _JoinHouseholdScreenState extends State<JoinHouseholdScreen> {
   Future<void> _unirse() async {
     if (!_formKey.currentState!.validate()) return;
     setState(() { _cargando = true; _error = null; });
+    final l10n = context.l10n;
     try {
       await HouseholdService.joinHousehold(_codeCtrl.text.trim());
       // La HouseholdGateScreen reacciona sola al stream de activeHouseholdId
@@ -36,12 +38,12 @@ class _JoinHouseholdScreenState extends State<JoinHouseholdScreen> {
       if (mounted) Navigator.of(context).pop();
     } on FirebaseFunctionsException catch (e) {
       setState(() => _error = switch (e.code) {
-        'not-found' => 'No existe ningún piso con ese código.',
-        'failed-precondition' => 'Ese piso ya tiene el máximo de miembros.',
-        _ => 'No se pudo unir al piso: ${e.message}',
+        'not-found' => l10n.joinHouseholdNotFound,
+        'failed-precondition' => l10n.joinHouseholdFull,
+        _ => l10n.joinHouseholdError(e.message ?? e.code),
       });
     } catch (e) {
-      setState(() => _error = 'No se pudo unir al piso: $e');
+      setState(() => _error = l10n.joinHouseholdError(e.toString()));
     } finally {
       if (mounted) setState(() => _cargando = false);
     }
@@ -49,8 +51,9 @@ class _JoinHouseholdScreenState extends State<JoinHouseholdScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return Scaffold(
-      appBar: AppBar(title: const Text('Unirse a un piso')),
+      appBar: AppBar(title: Text(l10n.joinHouseholdTitle)),
       body: Padding(
         padding: const EdgeInsets.all(24),
         child: Form(
@@ -65,12 +68,12 @@ class _JoinHouseholdScreenState extends State<JoinHouseholdScreen> {
                   FilteringTextInputFormatter.allow(RegExp('[A-Za-z0-9]')),
                   LengthLimitingTextInputFormatter(6),
                 ],
-                decoration: const InputDecoration(
-                  labelText: 'Código del piso',
-                  hintText: 'Ej: A3B7K9',
+                decoration: InputDecoration(
+                  labelText: l10n.joinHouseholdCodeLabel,
+                  hintText: l10n.joinHouseholdCodeHint,
                 ),
                 validator: (v) => (v == null || v.trim().length < 4)
-                    ? 'Introduce el código que te han pasado'
+                    ? l10n.joinHouseholdCodeRequired
                     : null,
               ),
               if (_error != null) ...[
@@ -84,7 +87,7 @@ class _JoinHouseholdScreenState extends State<JoinHouseholdScreen> {
                     ? const SizedBox(
                         width: 20, height: 20,
                         child: CircularProgressIndicator(strokeWidth: 2))
-                    : const Text('Unirme'),
+                    : Text(l10n.joinHouseholdButton),
               ),
             ],
           ),

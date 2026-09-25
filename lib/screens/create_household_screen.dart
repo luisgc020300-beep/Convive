@@ -1,6 +1,7 @@
 // lib/screens/create_household_screen.dart
 import 'package:flutter/material.dart';
 
+import '../l10n/l10n.dart';
 import '../services/household_service.dart';
 
 class CreateHouseholdScreen extends StatefulWidget {
@@ -25,6 +26,7 @@ class _CreateHouseholdScreenState extends State<CreateHouseholdScreen> {
   Future<void> _crear() async {
     if (!_formKey.currentState!.validate()) return;
     setState(() { _cargando = true; _error = null; });
+    final l10n = context.l10n;
     try {
       final result = await HouseholdService.createHousehold(_nombreCtrl.text.trim());
       if (!mounted) return;
@@ -32,12 +34,12 @@ class _CreateHouseholdScreenState extends State<CreateHouseholdScreen> {
         context: context,
         barrierDismissible: false,
         builder: (ctx) => AlertDialog(
-          title: const Text('¡Piso creado!'),
+          title: Text(l10n.createHouseholdSuccessTitle),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('Comparte este código con tus compañeros para que se unan:'),
+              Text(l10n.createHouseholdSuccessBody),
               const SizedBox(height: 12),
               Center(
                 child: Text(
@@ -51,7 +53,7 @@ class _CreateHouseholdScreenState extends State<CreateHouseholdScreen> {
           actions: [
             FilledButton(
               onPressed: () => Navigator.of(ctx).pop(),
-              child: const Text('Continuar'),
+              child: Text(l10n.continueLabel),
             ),
           ],
         ),
@@ -63,7 +65,7 @@ class _CreateHouseholdScreenState extends State<CreateHouseholdScreen> {
       // se vea lo de debajo ya actualizado.
       if (mounted) Navigator.of(context).pop();
     } catch (e) {
-      setState(() => _error = 'No se pudo crear el piso: $e');
+      setState(() => _error = l10n.createHouseholdError(e.toString()));
     } finally {
       if (mounted) setState(() => _cargando = false);
     }
@@ -71,8 +73,9 @@ class _CreateHouseholdScreenState extends State<CreateHouseholdScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return Scaffold(
-      appBar: AppBar(title: const Text('Crear piso')),
+      appBar: AppBar(title: Text(l10n.createHouseholdTitle)),
       body: Padding(
         padding: const EdgeInsets.all(24),
         child: Form(
@@ -82,12 +85,12 @@ class _CreateHouseholdScreenState extends State<CreateHouseholdScreen> {
             children: [
               TextFormField(
                 controller: _nombreCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'Nombre del piso',
-                  hintText: 'Ej: Piso de Cájar',
+                decoration: InputDecoration(
+                  labelText: l10n.createHouseholdNameLabel,
+                  hintText: l10n.createHouseholdNameHint,
                 ),
                 validator: (v) => (v == null || v.trim().isEmpty)
-                    ? 'Ponle un nombre a tu piso'
+                    ? l10n.createHouseholdNameRequired
                     : null,
               ),
               if (_error != null) ...[
@@ -101,7 +104,7 @@ class _CreateHouseholdScreenState extends State<CreateHouseholdScreen> {
                     ? const SizedBox(
                         width: 20, height: 20,
                         child: CircularProgressIndicator(strokeWidth: 2))
-                    : const Text('Crear piso'),
+                    : Text(l10n.createHouseholdButton),
               ),
             ],
           ),

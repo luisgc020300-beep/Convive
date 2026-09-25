@@ -2,6 +2,8 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
+import '../l10n/date_names.dart';
+import '../l10n/l10n.dart';
 import '../models/household.dart';
 import '../models/note.dart';
 import '../models/task.dart';
@@ -19,6 +21,7 @@ class TasksTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return Column(
       children: [
         Expanded(
@@ -34,7 +37,7 @@ class TasksTab extends StatelessWidget {
               return ListView(
                 padding: const EdgeInsets.all(16),
                 children: [
-                  Text('Tareas', style: Theme.of(context).textTheme.titleLarge),
+                  Text(l10n.tasksTitle, style: Theme.of(context).textTheme.titleLarge),
                   const SizedBox(height: 8),
                   WeeklyCalendar(
                     household: household,
@@ -42,17 +45,18 @@ class TasksTab extends StatelessWidget {
                     onAddTask: (day) => _mostrarNuevaTarea(context, household, day),
                   ),
                   const SizedBox(height: 20),
-                  Text('Hoy', style: Theme.of(context).textTheme.labelLarge?.copyWith(color: context.colors.paperMuted)),
+                  Text(l10n.tasksToday,
+                      style: Theme.of(context).textTheme.labelLarge?.copyWith(color: context.colors.paperMuted)),
                   const SizedBox(height: 6),
                   if (tareasDeHoy.isEmpty)
-                    const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 12),
-                      child: Text('Nada tuyo para hoy.'),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      child: Text(l10n.tasksNothingToday),
                     )
                   else
                     ...tareasDeHoy.map((t) => _TaskCard(household: household, task: t)),
                   const SizedBox(height: 28),
-                  Text('Notas del piso', style: Theme.of(context).textTheme.titleLarge),
+                  Text(l10n.tasksNotesTitle, style: Theme.of(context).textTheme.titleLarge),
                   const SizedBox(height: 8),
                   _NotesBoard(household: household),
                 ],
@@ -64,26 +68,24 @@ class TasksTab extends StatelessWidget {
     );
   }
 
-  static const _diasSemanaNombres = [
-    'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo',
-  ];
-
   Future<void> _mostrarNuevaTarea(BuildContext context, Household household, DateTime anchorDate) async {
     final tituloCtrl = TextEditingController();
     RecurrenceType tipo = RecurrenceType.weekly;
     final intervalCtrl = TextEditingController(text: '3');
     int diaSemana = anchorDate.weekday;
+    final l10n = context.l10n;
+    final nombresDias = diasLargos(context);
 
     await showConviveSheet<void>(
       context: context,
-      title: 'Nueva tarea — ${_diasSemanaNombres[anchorDate.weekday - 1]} ${anchorDate.day}',
+      title: l10n.tasksNewTaskFor('${nombresDias[anchorDate.weekday - 1]} ${anchorDate.day}'),
       builder: (ctx, setState) => Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           TextField(
             controller: tituloCtrl,
-            decoration: const InputDecoration(hintText: 'Ej: Fregar la cocina'),
+            decoration: InputDecoration(hintText: l10n.tasksTitleHint),
           ),
           const SizedBox(height: 12),
           DropdownButtonFormField<RecurrenceType>(
@@ -91,7 +93,7 @@ class TasksTab extends StatelessWidget {
             decoration: const InputDecoration(),
             dropdownColor: context.colors.cork,
             items: RecurrenceType.values
-                .map((t) => DropdownMenuItem(value: t, child: Text(t.label)))
+                .map((t) => DropdownMenuItem(value: t, child: Text(t.label(l10n))))
                 .toList(),
             onChanged: (v) => setState(() => tipo = v ?? tipo),
           ),
@@ -99,10 +101,10 @@ class TasksTab extends StatelessWidget {
             const SizedBox(height: 12),
             DropdownButtonFormField<int>(
               initialValue: diaSemana,
-              decoration: const InputDecoration(labelText: 'Día de la semana'),
+              decoration: InputDecoration(labelText: l10n.tasksDayOfWeek),
               dropdownColor: context.colors.cork,
               items: List.generate(7, (i) => i + 1)
-                  .map((d) => DropdownMenuItem(value: d, child: Text(_diasSemanaNombres[d - 1])))
+                  .map((d) => DropdownMenuItem(value: d, child: Text(nombresDias[d - 1])))
                   .toList(),
               onChanged: (v) => setState(() => diaSemana = v ?? diaSemana),
             ),
@@ -112,7 +114,7 @@ class TasksTab extends StatelessWidget {
             TextField(
               controller: intervalCtrl,
               keyboardType: TextInputType.number,
-              decoration: const InputDecoration(hintText: 'Cada cuántos días'),
+              decoration: InputDecoration(hintText: l10n.tasksIntervalHint),
             ),
           ],
           const SizedBox(height: 20),
@@ -133,7 +135,7 @@ class TasksTab extends StatelessWidget {
               );
               if (ctx.mounted) Navigator.pop(ctx);
             },
-            child: const Text('Crear'),
+            child: Text(l10n.create),
           ),
         ],
       ),
@@ -149,8 +151,9 @@ class _TaskCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final asignadoUid = task.asignadoEnDia(DateTime.now());
-    final asignado = household.memberProfiles[asignadoUid]?.displayName ?? 'Sin asignar';
+    final asignado = household.memberProfiles[asignadoUid]?.displayName ?? l10n.memberUnknown;
     final esMiTurno = asignadoUid == FirebaseAuth.instance.currentUser?.uid;
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
@@ -168,7 +171,7 @@ class _TaskCard extends StatelessWidget {
               children: [
                 Text(task.title, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
                 const SizedBox(height: 2),
-                Text('Le toca a $asignado',
+                Text(l10n.tasksAssignedTo(asignado),
                     style: TextStyle(color: context.colors.paperMuted, fontSize: 12)),
               ],
             ),
@@ -190,7 +193,7 @@ class _TaskCard extends StatelessWidget {
                       householdId: household.id,
                       taskId: task.id,
                     ),
-            child: Text(task.completadaHoy ? 'Hecha hoy' : (esMiTurno ? 'Hecho' : 'Marcar hecho')),
+            child: Text(task.completadaHoy ? l10n.tasksDoneToday : (esMiTurno ? l10n.tasksDone : l10n.tasksMarkDone)),
           ),
           IconButton(
             icon: Icon(Icons.delete_outline, size: 18, color: context.colors.paperMuted),
@@ -202,17 +205,18 @@ class _TaskCard extends StatelessWidget {
   }
 
   Future<void> _confirmarBorrado(BuildContext context, Household household, ConviveTask task) async {
+    final l10n = context.l10n;
     final confirmado = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('¿Borrar esta tarea?'),
-        content: Text('Se dejará de repartir "${task.title}". El historial ya registrado no se borra.'),
+        title: Text(l10n.tasksDeleteTitle),
+        content: Text(l10n.tasksDeleteBody(task.title)),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(l10n.cancel)),
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: context.colors.rust),
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Borrar'),
+            child: Text(l10n.delete),
           ),
         ],
       ),
@@ -230,6 +234,7 @@ class _NotesBoard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return CorkboardSurface(
       child: Padding(
         padding: const EdgeInsets.all(14),
@@ -241,7 +246,7 @@ class _NotesBoard extends StatelessWidget {
               child: TextButton.icon(
                 onPressed: () => _mostrarNuevaNota(context, household),
                 icon: Icon(Icons.push_pin_outlined, color: context.colors.paper, size: 16),
-                label: Text('Clavar nota', style: TextStyle(color: context.colors.paper)),
+                label: Text(l10n.tasksPinNote, style: TextStyle(color: context.colors.paper)),
               ),
             ),
             StreamBuilder<List<ConviveNote>>(
@@ -253,7 +258,7 @@ class _NotesBoard extends StatelessWidget {
                     padding: const EdgeInsets.symmetric(vertical: 20),
                     child: Center(
                       child: Text(
-                        'El corcho está vacío. Clava la primera nota.',
+                        l10n.tasksBoardEmpty,
                         style: ConviveText.handwritten(fontSize: 16, color: context.colors.paperMuted),
                       ),
                     ),
@@ -265,7 +270,7 @@ class _NotesBoard extends StatelessWidget {
                   runSpacing: 18,
                   children: notes.asMap().entries.map((entry) {
                     final n = entry.value;
-                    final autor = household.memberProfiles[n.authorUid]?.displayName ?? 'Alguien';
+                    final autor = household.memberProfiles[n.authorUid]?.displayName ?? l10n.memberUnknown;
                     return PostItNote(
                       text: n.text,
                       author: autor,
@@ -287,9 +292,10 @@ class _NotesBoard extends StatelessWidget {
 
   Future<void> _mostrarNuevaNota(BuildContext context, Household household) async {
     final ctrl = TextEditingController();
+    final l10n = context.l10n;
     await showConviveSheet<void>(
       context: context,
-      title: 'Clavar una nota',
+      title: l10n.tasksNewNoteTitle,
       builder: (ctx, setState) => Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -298,7 +304,7 @@ class _NotesBoard extends StatelessWidget {
             controller: ctrl,
             autofocus: true,
             maxLines: 3,
-            decoration: const InputDecoration(hintText: 'Ej: Ha venido el casero...'),
+            decoration: InputDecoration(hintText: l10n.tasksNoteHint),
           ),
           const SizedBox(height: 16),
           FilledButton(
@@ -308,7 +314,7 @@ class _NotesBoard extends StatelessWidget {
               await NoteService.postNote(household.id, text);
               if (ctx.mounted) Navigator.pop(ctx);
             },
-            child: const Text('Clavar'),
+            child: Text(l10n.tasksPin),
           ),
         ],
       ),

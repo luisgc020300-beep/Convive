@@ -38,6 +38,37 @@ class HouseholdService {
     await callable.call<Map<String, dynamic>>({'householdId': householdId});
   }
 
+  /// Cuándo viste por última vez el chat/las notas de cada piso -- mapas
+  /// {householdId: Timestamp} en users/{uid}, para que el contador de
+  /// "nuevo" en la barra de abajo sea por piso, no global (con varios pisos,
+  /// un mensaje nuevo en la casa rural no debería marcar el piso de Granada).
+  static Stream<Map<String, dynamic>> streamLastSeen() {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return Stream.value(const {});
+    return _db.collection('users').doc(uid).snapshots().map((doc) => {
+          'chat': (doc.data()?['lastSeenChat'] as Map<String, dynamic>?) ?? {},
+          'notes': (doc.data()?['lastSeenNotes'] as Map<String, dynamic>?) ?? {},
+        });
+  }
+
+  static Future<void> markChatSeen(String householdId) async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+    // Ruta con punto -- Firestore la trata como el campo anidado exacto,
+    // sin pisar los timestamps de otros pisos guardados en el mismo mapa.
+    await _db.collection('users').doc(uid).set({
+      'lastSeenChat.$householdId': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+  }
+
+  static Future<void> markNotesSeen(String householdId) async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+    await _db.collection('users').doc(uid).set({
+      'lastSeenNotes.$householdId': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+  }
+
   static Stream<Household> streamHousehold(String householdId) {
     return _db
         .collection('households')

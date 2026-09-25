@@ -6,6 +6,8 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
+import '../l10n/date_names.dart';
+import '../l10n/l10n.dart';
 import '../models/expense.dart';
 import '../models/household.dart';
 import '../models/reminder.dart';
@@ -16,13 +18,6 @@ import '../widgets/convive_sheet.dart';
 import '../widgets/dashed_divider.dart';
 import 'expenses_summary_screen.dart';
 
-const _mesesPagos = [
-  'ene', 'feb', 'mar', 'abr', 'may', 'jun',
-  'jul', 'ago', 'sep', 'oct', 'nov', 'dic',
-];
-
-String _formatearFecha(DateTime d) => '${d.day} ${_mesesPagos[d.month - 1]}';
-
 class PaymentsTab extends StatelessWidget {
   const PaymentsTab({required this.household, super.key});
 
@@ -30,18 +25,19 @@ class PaymentsTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text('Gastos comunes', style: Theme.of(context).textTheme.titleLarge),
+            Text(l10n.paymentsExpensesTitle, style: Theme.of(context).textTheme.titleLarge),
             Row(
               children: [
                 IconButton(
                   icon: Icon(Icons.bar_chart_rounded, color: context.colors.mint, size: 20),
-                  tooltip: 'Resumen de gastos',
+                  tooltip: l10n.paymentsSummaryTooltip,
                   onPressed: () => Navigator.push(
                     context,
                     MaterialPageRoute(builder: (_) => ExpensesSummaryScreen(household: household)),
@@ -50,7 +46,7 @@ class PaymentsTab extends StatelessWidget {
                 TextButton.icon(
                   onPressed: () => _mostrarNuevoGasto(context, household),
                   icon: Icon(Icons.add, color: context.colors.mint),
-                  label: Text('Nuevo', style: TextStyle(color: context.colors.mint)),
+                  label: Text(l10n.paymentsNew, style: TextStyle(color: context.colors.mint)),
                 ),
               ],
             ),
@@ -62,11 +58,11 @@ class PaymentsTab extends StatelessWidget {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text('Recordatorios de pago', style: Theme.of(context).textTheme.titleLarge),
+            Text(l10n.paymentsRemindersTitle, style: Theme.of(context).textTheme.titleLarge),
             TextButton.icon(
               onPressed: () => _mostrarNuevoRecordatorio(context, household),
               icon: Icon(Icons.add, color: context.colors.mint),
-              label: Text('Nuevo', style: TextStyle(color: context.colors.mint)),
+              label: Text(l10n.paymentsNew, style: TextStyle(color: context.colors.mint)),
             ),
           ],
         ),
@@ -82,10 +78,11 @@ class PaymentsTab extends StatelessWidget {
     String paidByUid = FirebaseAuth.instance.currentUser?.uid ?? household.members.first;
     final incluidos = {...household.members};
     ExpenseCategory categoria = ExpenseCategory.otros;
+    final l10n = context.l10n;
 
     await showConviveSheet<void>(
       context: context,
-      title: 'Nuevo gasto',
+      title: l10n.paymentsNewExpenseTitle,
       builder: (ctx, setState) => SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -93,7 +90,7 @@ class PaymentsTab extends StatelessWidget {
           children: [
             TextField(
               controller: descCtrl,
-              decoration: const InputDecoration(hintText: 'Ej: Productos del baño'),
+              decoration: InputDecoration(hintText: l10n.paymentsDescriptionHint),
             ),
             const SizedBox(height: 12),
             SizedBox(
@@ -110,7 +107,7 @@ class PaymentsTab extends StatelessWidget {
                     onSelected: (_) => setState(() => categoria = cat),
                     avatar: Icon(cat.icon, size: 15,
                         color: seleccionada ? const Color(0xFF0B2116) : context.colors.paperMuted),
-                    label: Text(cat.label),
+                    label: Text(cat.label(l10n)),
                     labelStyle: TextStyle(
                         fontSize: 12.5, color: seleccionada ? const Color(0xFF0B2116) : context.colors.paper),
                     selectedColor: context.colors.mint,
@@ -124,18 +121,18 @@ class PaymentsTab extends StatelessWidget {
             TextField(
               controller: amountCtrl,
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              decoration: const InputDecoration(hintText: 'Importe total (€)'),
+              decoration: InputDecoration(hintText: l10n.paymentsAmountHint),
               style: ConviveText.amount(fontSize: 16, color: context.colors.paper),
             ),
             const SizedBox(height: 12),
             DropdownButtonFormField<String>(
               initialValue: paidByUid,
-              decoration: const InputDecoration(labelText: '¿Quién pagó?'),
+              decoration: InputDecoration(labelText: l10n.paymentsWhoPaid),
               dropdownColor: context.colors.cork,
               items: household.members
                   .map((uid) => DropdownMenuItem(
                         value: uid,
-                        child: Text(household.memberProfiles[uid]?.displayName ?? 'Runner'),
+                        child: Text(household.memberProfiles[uid]?.displayName ?? l10n.memberUnknown),
                       ))
                   .toList(),
               onChanged: (v) => setState(() => paidByUid = v ?? paidByUid),
@@ -143,14 +140,14 @@ class PaymentsTab extends StatelessWidget {
             const SizedBox(height: 12),
             Align(
               alignment: Alignment.centerLeft,
-              child: Text('Repartir entre:', style: TextStyle(color: context.colors.paperMuted, fontSize: 13)),
+              child: Text(l10n.paymentsSplitBetween, style: TextStyle(color: context.colors.paperMuted, fontSize: 13)),
             ),
             ...household.members.map((uid) => CheckboxListTile(
                   dense: true,
                   contentPadding: EdgeInsets.zero,
                   activeColor: context.colors.mint,
                   value: incluidos.contains(uid),
-                  title: Text(household.memberProfiles[uid]?.displayName ?? 'Runner'),
+                  title: Text(household.memberProfiles[uid]?.displayName ?? l10n.memberUnknown),
                   onChanged: (v) => setState(() {
                     if (v == true) {
                       incluidos.add(uid);
@@ -178,7 +175,7 @@ class PaymentsTab extends StatelessWidget {
                 );
                 if (ctx.mounted) Navigator.pop(ctx);
               },
-              child: const Text('Añadir'),
+              child: Text(l10n.add),
             ),
           ],
         ),
@@ -191,40 +188,41 @@ class PaymentsTab extends StatelessWidget {
     bool recurrente = true;
     int dueDay = 1;
     DateTime dueDate = DateTime.now().add(const Duration(days: 1));
+    final l10n = context.l10n;
 
     await showConviveSheet<void>(
       context: context,
-      title: 'Nuevo recordatorio',
+      title: l10n.paymentsNewReminderTitle,
       builder: (ctx, setState) => Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           TextField(
             controller: titleCtrl,
-            decoration: const InputDecoration(hintText: 'Ej: Pagar el agua'),
+            decoration: InputDecoration(hintText: l10n.paymentsReminderHint),
           ),
           const SizedBox(height: 12),
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
             activeThumbColor: context.colors.mint,
             value: recurrente,
-            title: const Text('Se repite cada mes'),
+            title: Text(l10n.paymentsRecurringMonthly),
             onChanged: (v) => setState(() => recurrente = v),
           ),
           if (recurrente)
             DropdownButtonFormField<int>(
               initialValue: dueDay,
-              decoration: const InputDecoration(labelText: 'Día del mes'),
+              decoration: InputDecoration(labelText: l10n.paymentsDayOfMonth),
               dropdownColor: context.colors.cork,
               items: List.generate(28, (i) => i + 1)
-                  .map((d) => DropdownMenuItem(value: d, child: Text('Día $d')))
+                  .map((d) => DropdownMenuItem(value: d, child: Text(l10n.paymentsDayN(d))))
                   .toList(),
               onChanged: (v) => setState(() => dueDay = v ?? dueDay),
             )
           else
             ListTile(
               contentPadding: EdgeInsets.zero,
-              title: Text('Fecha: ${_formatearFecha(dueDate)}'),
+              title: Text(l10n.paymentsDateLabel(_formatearFecha(context, dueDate))),
               trailing: Icon(Icons.calendar_today, size: 18, color: context.colors.mint),
               onTap: () async {
                 final elegida = await showDatePicker(
@@ -250,7 +248,7 @@ class PaymentsTab extends StatelessWidget {
               );
               if (ctx.mounted) Navigator.pop(ctx);
             },
-            child: const Text('Añadir'),
+            child: Text(l10n.add),
           ),
         ],
       ),
@@ -258,15 +256,19 @@ class PaymentsTab extends StatelessWidget {
   }
 }
 
+String _formatearFecha(BuildContext context, DateTime d) => '${d.day} ${mesesCortos(context)[d.month - 1]}';
+
 class _ExpensesSection extends StatelessWidget {
   const _ExpensesSection({required this.household});
 
   final Household household;
 
-  String _nombre(String uid) => household.memberProfiles[uid]?.displayName ?? 'Alguien';
+  String _nombre(AppLocalizations l10n, String uid) =>
+      household.memberProfiles[uid]?.displayName ?? l10n.memberUnknown;
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return StreamBuilder<List<Expense>>(
       stream: ExpenseService.streamExpenses(household.id),
       builder: (context, snapshot) {
@@ -279,7 +281,7 @@ class _ExpensesSection extends StatelessWidget {
         final expenses = snapshot.data ?? [];
         if (expenses.isEmpty) {
           return Text(
-            'Todavía no hay gastos comunes registrados.',
+            l10n.paymentsNoExpenses,
             style: TextStyle(color: context.colors.paperMuted),
           );
         }
@@ -309,7 +311,7 @@ class _ExpensesSection extends StatelessWidget {
                         child: DashedDivider(),
                       ),
                       Text(
-                        '${_nombre(settlements[i].fromUid)} le debe a ${_nombre(settlements[i].toUid)}',
+                        l10n.paymentsOwes(_nombre(l10n, settlements[i].fromUid), _nombre(l10n, settlements[i].toUid)),
                         style: TextStyle(fontSize: 13, color: context.colors.paper),
                       ),
                       Align(
@@ -344,7 +346,7 @@ class _ExpensesSection extends StatelessWidget {
                               children: [
                                 Text(expenses[i].description, style: const TextStyle(fontWeight: FontWeight.w600)),
                                 const SizedBox(height: 2),
-                                Text('pagó ${_nombre(expenses[i].paidByUid)}',
+                                Text(l10n.paymentsPaidBy(_nombre(l10n, expenses[i].paidByUid)),
                                     style: TextStyle(fontSize: 11.5, color: context.colors.paperMuted)),
                               ],
                             ),
@@ -379,10 +381,11 @@ class _BalanceCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final cuadrado = balance.abs() < 0.005;
     final positivo = balance > 0;
     final color = cuadrado ? context.colors.paperMuted : (positivo ? context.colors.mint : context.colors.rust);
-    final etiqueta = cuadrado ? 'Estás en paz' : (positivo ? 'te deben' : 'debes');
+    final etiqueta = cuadrado ? l10n.paymentsSettledUp : (positivo ? l10n.paymentsTheyOweYou : l10n.paymentsYouOwe);
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 16),
@@ -393,7 +396,7 @@ class _BalanceCard extends StatelessWidget {
       ),
       child: Column(
         children: [
-          Text('TU BALANCE', style: TextStyle(fontSize: 11, letterSpacing: 1.5, color: context.colors.paperMuted)),
+          Text(l10n.paymentsYourBalance, style: TextStyle(fontSize: 11, letterSpacing: 1.5, color: context.colors.paperMuted)),
           const SizedBox(height: 4),
           Text(
             cuadrado ? '0.00€' : '${positivo ? '+' : ''}${balance.toStringAsFixed(2)}€',
@@ -413,6 +416,7 @@ class _RemindersSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return StreamBuilder<List<PaymentReminder>>(
       stream: ReminderService.streamReminders(household.id),
       builder: (context, snapshot) {
@@ -425,7 +429,7 @@ class _RemindersSection extends StatelessWidget {
         final reminders = [...(snapshot.data ?? [])]
           ..sort((a, b) => a.nextOccurrence().compareTo(b.nextOccurrence()));
         if (reminders.isEmpty) {
-          return Text('Sin recordatorios de pago.', style: TextStyle(color: context.colors.paperMuted));
+          return Text(l10n.paymentsNoReminders, style: TextStyle(color: context.colors.paperMuted));
         }
         final myUid = FirebaseAuth.instance.currentUser?.uid;
         return Container(
@@ -456,8 +460,8 @@ class _RemindersSection extends StatelessWidget {
                             Text(reminders[i].title, style: const TextStyle(fontWeight: FontWeight.w600)),
                             Text(
                               reminders[i].recurring
-                                  ? '${_formatearFecha(reminders[i].nextOccurrence())} · cada mes'
-                                  : _formatearFecha(reminders[i].nextOccurrence()),
+                                  ? '${_formatearFecha(context, reminders[i].nextOccurrence())} · ${l10n.paymentsEveryMonth}'
+                                  : _formatearFecha(context, reminders[i].nextOccurrence()),
                               style: TextStyle(fontSize: 12, color: context.colors.paperMuted),
                             ),
                           ],

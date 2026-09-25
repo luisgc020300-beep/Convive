@@ -10,10 +10,12 @@ import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 
 import 'core/service_locator.dart';
 import 'firebase_options.dart';
+import 'l10n/l10n.dart';
 import 'screens/household_gate_screen.dart';
 import 'screens/login_screen.dart';
 import 'services/household_service.dart';
 import 'theme/design_tokens.dart';
+import 'theme/locale_controller.dart';
 import 'theme/theme_controller.dart';
 
 void main() async {
@@ -34,29 +36,34 @@ void main() async {
 
   await setupLocator();
   final themeController = await ThemeController.load();
+  final localeController = await LocaleController.load();
 
   FirebaseAuth.instance.authStateChanges().listen((user) {
     if (user != null) HouseholdService.asegurarPerfilUsuario();
   });
 
-  runApp(ConviveApp(themeController: themeController));
+  runApp(ConviveApp(themeController: themeController, localeController: localeController));
 }
 
 class ConviveApp extends StatelessWidget {
-  const ConviveApp({required this.themeController, super.key});
+  const ConviveApp({required this.themeController, required this.localeController, super.key});
 
   final ThemeController themeController;
+  final LocaleController localeController;
 
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
-      animation: themeController,
+      animation: Listenable.merge([themeController, localeController]),
       builder: (context, _) => MaterialApp(
         debugShowCheckedModeBanner: false,
         title: 'Convive',
         themeMode: themeController.mode,
         theme: buildConviveLightTheme(),
         darkTheme: buildConviveDarkTheme(),
+        locale: localeController.locale,
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         home: StreamBuilder<User?>(
           stream: FirebaseAuth.instance.authStateChanges(),
           builder: (context, snapshot) {

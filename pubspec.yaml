@@ -50,6 +50,11 @@ dependencies:
   connectivity_plus: ^6.0.0
   shared_preferences: ^2.3.0
 
+  # Idiomas (español/inglés) -- ver lib/l10n/.
+  flutter_localizations:
+    sdk: flutter
+  intl: ^0.20.2
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -72,6 +77,9 @@ flutter:
   # included with your application, so that you can use the icons in
   # the material Icons class.
   uses-material-design: true
+
+  # Genera AppLocalizations a partir de lib/l10n/*.arb (ver l10n.yaml).
+  generate: true
 
   # To add assets to your application, add an assets section, like this:
   # assets:

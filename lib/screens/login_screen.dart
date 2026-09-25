@@ -2,6 +2,8 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
+import '../l10n/l10n.dart';
+
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
@@ -48,6 +50,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return Scaffold(
       body: SafeArea(
         child: Center(
@@ -59,11 +62,11 @@ class _LoginScreenState extends State<LoginScreen> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Text('Convive',
+                  Text(l10n.appTitle,
                       textAlign: TextAlign.center,
                       style: Theme.of(context).textTheme.headlineMedium),
                   const SizedBox(height: 8),
-                  Text('Convivencia de piso sin dramas',
+                  Text(l10n.loginSubtitle,
                       textAlign: TextAlign.center,
                       style: Theme.of(context).textTheme.bodyMedium),
                   const SizedBox(height: 32),
@@ -74,9 +77,9 @@ class _LoginScreenState extends State<LoginScreen> {
                           controller: _emailCtrl,
                           keyboardType: TextInputType.emailAddress,
                           autofillHints: const [AutofillHints.email],
-                          decoration: const InputDecoration(labelText: 'Email'),
+                          decoration: InputDecoration(labelText: l10n.loginEmail),
                           validator: (v) =>
-                              (v == null || !v.contains('@')) ? 'Email no válido' : null,
+                              (v == null || !v.contains('@')) ? l10n.loginEmailInvalid : null,
                         ),
                         const SizedBox(height: 12),
                         TextFormField(
@@ -85,9 +88,9 @@ class _LoginScreenState extends State<LoginScreen> {
                           autofillHints: [
                             _esRegistro ? AutofillHints.newPassword : AutofillHints.password,
                           ],
-                          decoration: const InputDecoration(labelText: 'Contraseña'),
+                          decoration: InputDecoration(labelText: l10n.loginPassword),
                           validator: (v) =>
-                              (v == null || v.length < 6) ? 'Mínimo 6 caracteres' : null,
+                              (v == null || v.length < 6) ? l10n.loginPasswordTooShort : null,
                         ),
                       ],
                     ),
@@ -103,16 +106,14 @@ class _LoginScreenState extends State<LoginScreen> {
                         ? const SizedBox(
                             width: 20, height: 20,
                             child: CircularProgressIndicator(strokeWidth: 2))
-                        : Text(_esRegistro ? 'Crear cuenta' : 'Entrar'),
+                        : Text(_esRegistro ? l10n.loginCreateAccount : l10n.loginEnter),
                   ),
                   const SizedBox(height: 8),
                   TextButton(
                     onPressed: _cargando
                         ? null
                         : () => setState(() => _esRegistro = !_esRegistro),
-                    child: Text(_esRegistro
-                        ? '¿Ya tienes cuenta? Entrar'
-                        : '¿No tienes cuenta? Regístrate'),
+                    child: Text(_esRegistro ? l10n.loginHaveAccount : l10n.loginNoAccount),
                   ),
                 ],
               ),

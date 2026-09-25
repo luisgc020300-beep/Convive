@@ -1,6 +1,7 @@
 // lib/screens/notification_prefs_screen.dart
 import 'package:flutter/material.dart';
 
+import '../l10n/l10n.dart';
 import '../models/notification_prefs.dart';
 import '../services/notification_prefs_service.dart';
 import '../theme/design_tokens.dart';
@@ -10,8 +11,9 @@ class NotificationPrefsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return Scaffold(
-      appBar: AppBar(title: const Text('Notificaciones')),
+      appBar: AppBar(title: Text(l10n.notifTitle)),
       body: StreamBuilder<NotificationPrefs>(
         stream: NotificationPrefsService.streamPrefs(),
         builder: (context, snapshot) {
@@ -22,53 +24,53 @@ class NotificationPrefsScreen extends StatelessWidget {
           return ListView(
             padding: const EdgeInsets.all(16),
             children: [
-              _Grupo(titulo: 'Tareas', children: [
+              _Grupo(titulo: l10n.notifGroupTasks, children: [
                 _Interruptor(
-                  titulo: 'Tarea de hoy',
-                  subtitulo: 'Un aviso por la mañana si hoy te toca algo',
+                  titulo: l10n.notifTaskTodayTitle,
+                  subtitulo: l10n.notifTaskTodaySubtitle,
                   valor: prefs.tareaHoy,
                   onChanged: (v) => NotificationPrefsService.savePrefs(prefs.copyWith(tareaHoy: v)),
                 ),
                 _Interruptor(
-                  titulo: 'Tarea fallada',
-                  subtitulo: 'Avisar si ayer se quedó sin hacer una tarea tuya',
+                  titulo: l10n.notifTaskMissedTitle,
+                  subtitulo: l10n.notifTaskMissedSubtitle,
                   valor: prefs.tareaFallada,
                   onChanged: (v) => NotificationPrefsService.savePrefs(prefs.copyWith(tareaFallada: v)),
                 ),
               ]),
               const SizedBox(height: 20),
-              _Grupo(titulo: 'Pagos', children: [
+              _Grupo(titulo: l10n.notifGroupPayments, children: [
                 _Interruptor(
-                  titulo: 'Recordatorio de pago',
-                  subtitulo: 'La tarde antes de que venza un recordatorio',
+                  titulo: l10n.notifPaymentDueTitle,
+                  subtitulo: l10n.notifPaymentDueSubtitle,
                   valor: prefs.pagoManana,
                   onChanged: (v) => NotificationPrefsService.savePrefs(prefs.copyWith(pagoManana: v)),
                 ),
                 _Interruptor(
-                  titulo: 'Gasto nuevo',
-                  subtitulo: 'Cuando alguien añade un gasto que te afecta',
+                  titulo: l10n.notifNewExpenseTitle,
+                  subtitulo: l10n.notifNewExpenseSubtitle,
                   valor: prefs.nuevoGasto,
                   onChanged: (v) => NotificationPrefsService.savePrefs(prefs.copyWith(nuevoGasto: v)),
                 ),
                 _Interruptor(
-                  titulo: 'Resumen semanal de deudas',
-                  subtitulo: 'Un aviso a la semana si tienes saldo pendiente',
+                  titulo: l10n.notifWeeklyDebtTitle,
+                  subtitulo: l10n.notifWeeklyDebtSubtitle,
                   valor: prefs.resumenSemanalDeudas,
                   onChanged: (v) =>
                       NotificationPrefsService.savePrefs(prefs.copyWith(resumenSemanalDeudas: v)),
                 ),
               ]),
               const SizedBox(height: 20),
-              _Grupo(titulo: 'Piso', children: [
+              _Grupo(titulo: l10n.notifGroupHousehold, children: [
                 _Interruptor(
-                  titulo: 'Nota nueva',
-                  subtitulo: 'Cuando alguien clava una nota en el corcho',
+                  titulo: l10n.notifNewNoteTitle,
+                  subtitulo: l10n.notifNewNoteSubtitle,
                   valor: prefs.nuevaNota,
                   onChanged: (v) => NotificationPrefsService.savePrefs(prefs.copyWith(nuevaNota: v)),
                 ),
                 _Interruptor(
-                  titulo: 'Mensaje de chat',
-                  subtitulo: 'Cuando llega un mensaje nuevo',
+                  titulo: l10n.notifNewMessageTitle,
+                  subtitulo: l10n.notifNewMessageSubtitle,
                   valor: prefs.nuevoMensaje,
                   onChanged: (v) => NotificationPrefsService.savePrefs(prefs.copyWith(nuevoMensaje: v)),
                 ),

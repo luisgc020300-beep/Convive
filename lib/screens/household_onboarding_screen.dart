@@ -2,6 +2,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
+import '../l10n/l10n.dart';
 import 'create_household_screen.dart';
 import 'join_household_screen.dart';
 
@@ -10,9 +11,10 @@ class HouseholdOnboardingScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Convive'),
+        title: Text(l10n.appTitle),
         actions: [
           IconButton(
             icon: const Icon(Icons.logout),
@@ -29,22 +31,22 @@ class HouseholdOnboardingScreen extends StatelessWidget {
             children: [
               const Icon(Icons.home_outlined, size: 56),
               const SizedBox(height: 16),
-              const Text(
-                'Todavía no tienes un piso',
+              Text(
+                l10n.onboardingNoHousehold,
                 textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
               ),
               const SizedBox(height: 24),
               FilledButton(
                 onPressed: () => Navigator.push(context,
                     MaterialPageRoute(builder: (_) => const CreateHouseholdScreen())),
-                child: const Text('Crear un piso'),
+                child: Text(l10n.onboardingCreate),
               ),
               const SizedBox(height: 12),
               OutlinedButton(
                 onPressed: () => Navigator.push(context,
                     MaterialPageRoute(builder: (_) => const JoinHouseholdScreen())),
-                child: const Text('Unirme con un código'),
+                child: Text(l10n.onboardingJoin),
               ),
             ],
           ),

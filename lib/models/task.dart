@@ -10,6 +10,8 @@
 // hacia el futuro para tareas semanales y "cada X días".
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import '../l10n/l10n.dart';
+
 enum RecurrenceType { daily, weekly, everyNDays }
 
 extension RecurrenceTypeX on RecurrenceType {
@@ -19,10 +21,10 @@ extension RecurrenceTypeX on RecurrenceType {
         RecurrenceType.everyNDays => 'every_n_days',
       };
 
-  String get label => switch (this) {
-        RecurrenceType.daily => 'Cada día',
-        RecurrenceType.weekly => 'Cada semana',
-        RecurrenceType.everyNDays => 'Cada X días',
+  String label(AppLocalizations l10n) => switch (this) {
+        RecurrenceType.daily => l10n.recurrenceDaily,
+        RecurrenceType.weekly => l10n.recurrenceWeekly,
+        RecurrenceType.everyNDays => l10n.recurrenceEveryNDays,
       };
 
   static RecurrenceType fromWire(String? v) => switch (v) {

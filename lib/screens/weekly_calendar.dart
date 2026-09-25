@@ -11,6 +11,8 @@
 // cuándo se pulsó "Hecho" la última vez.
 import 'package:flutter/material.dart';
 
+import '../l10n/date_names.dart';
+import '../l10n/l10n.dart';
 import '../models/household.dart';
 import '../models/reminder.dart';
 import '../models/task.dart';
@@ -18,16 +20,6 @@ import '../services/reminder_service.dart';
 import '../services/task_service.dart';
 import '../theme/design_tokens.dart';
 import '../widgets/corkboard.dart';
-
-const _diasSemana = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
-const _meses = [
-  'ene', 'feb', 'mar', 'abr', 'may', 'jun',
-  'jul', 'ago', 'sep', 'oct', 'nov', 'dic',
-];
-const _mesesLargos = [
-  'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
-  'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre',
-];
 
 List<Color> _memberColors(ConviveColorsExt colors) => [
       colors.amber, colors.coral, colors.mint,
@@ -42,8 +34,8 @@ Color _colorForMember(ConviveColorsExt colors, Household household, String? uid)
   return paleta[i % paleta.length];
 }
 
-String _nameForMember(Household household, String? uid) =>
-    household.memberProfiles[uid]?.displayName ?? 'Alguien';
+String _nameForMember(AppLocalizations l10n, Household household, String? uid) =>
+    household.memberProfiles[uid]?.displayName ?? l10n.memberUnknown;
 
 bool _sameDay(DateTime a, DateTime b) =>
     a.year == b.year && a.month == b.month && a.day == b.day;
@@ -106,6 +98,10 @@ class _WeeklyCalendarState extends State<WeeklyCalendar> {
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
+    final l10n = context.l10n;
+    final diasLetra = diasCortos(context);
+    final mesesAbrev = mesesCortos(context);
+    final mesesLargosLoc = mesesLargos(context);
     final today = _todayMidnight();
 
     final List<DateTime> diasSemana;
@@ -153,10 +149,10 @@ class _WeeklyCalendarState extends State<WeeklyCalendar> {
                         ),
                         Text(
                           _expandido
-                              ? '${_mesesLargos[primerDiaMes.month - 1]} ${primerDiaMes.year}'
+                              ? '${mesesLargosLoc[primerDiaMes.month - 1]} ${primerDiaMes.year}'
                               : (_weekOffset == 0
-                                  ? 'Esta semana'
-                                  : '${diasSemana.first.day} ${_meses[diasSemana.first.month - 1]} — ${diasSemana.last.day} ${_meses[diasSemana.last.month - 1]}'),
+                                  ? l10n.tasksThisWeek
+                                  : '${diasSemana.first.day} ${mesesAbrev[diasSemana.first.month - 1]} — ${diasSemana.last.day} ${mesesAbrev[diasSemana.last.month - 1]}'),
                           style: Theme.of(context).textTheme.labelLarge,
                         ),
                         IconButton(
@@ -169,7 +165,7 @@ class _WeeklyCalendarState extends State<WeeklyCalendar> {
                     if (_expandido) ...[
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceAround,
-                        children: _diasSemana
+                        children: diasLetra
                             .map((l) => SizedBox(
                                   width: 30,
                                   child: Text(l,
@@ -195,7 +191,7 @@ class _WeeklyCalendarState extends State<WeeklyCalendar> {
                         children: List.generate(7, (i) {
                           final day = diasSemana[i];
                           return _DayDot(
-                            label: _diasSemana[i],
+                            label: diasLetra[i],
                             number: day.day,
                             esHoy: _sameDay(day, today),
                             seleccionado: _sameDay(day, _selectedDay),
@@ -224,7 +220,7 @@ class _WeeklyCalendarState extends State<WeeklyCalendar> {
                             onPressed: () => widget.onAddTask(_selectedDay),
                             icon: Icon(Icons.add, size: 16, color: colors.amber),
                             label: Text(
-                              'Añadir tarea para el ${_diasSemana[_selectedDay.weekday - 1]} ${_selectedDay.day}',
+                              l10n.tasksAddTaskFor('${diasLetra[_selectedDay.weekday - 1]} ${_selectedDay.day}'),
                               style: TextStyle(color: colors.amber, fontSize: 12.5),
                               overflow: TextOverflow.ellipsis,
                             ),
@@ -238,7 +234,7 @@ class _WeeklyCalendarState extends State<WeeklyCalendar> {
                             color: colors.paperMuted,
                           ),
                           label: Text(
-                            _expandido ? 'Semana' : 'Mes',
+                            _expandido ? l10n.tasksWeekView : l10n.tasksMonthView,
                             style: TextStyle(color: colors.paperMuted, fontSize: 12.5),
                           ),
                         ),
@@ -478,6 +474,7 @@ class _DayDetail extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
+    final l10n = context.l10n;
     final programadas = tasks
         .where((t) => t.ocurreEnDia(day) && !completions.any((c) => c.taskId == t.id))
         .toList();
@@ -486,7 +483,7 @@ class _DayDetail extends StatelessWidget {
       return Padding(
         padding: const EdgeInsets.symmetric(vertical: 8),
         child: Text(
-          'Nada programado ese día.',
+          l10n.tasksNothingScheduled,
           style: TextStyle(color: colors.paperMuted.withValues(alpha: 0.8), fontSize: 13),
         ),
       );
@@ -497,19 +494,19 @@ class _DayDetail extends StatelessWidget {
       children: [
         ...reminders.map((r) => _DetailRow(
               texto: r.title,
-              persona: r.recurring ? 'cada mes' : 'pago puntual',
+              persona: r.recurring ? l10n.paymentsEveryMonth : l10n.paymentsOneTime,
               color: colors.mint,
               icono: Icons.attach_money,
             )),
         ...completions.map((c) => _DetailRow(
               texto: c.taskTitle,
-              persona: _nameForMember(household, c.completedBy ?? c.assigneeUid),
+              persona: _nameForMember(l10n, household, c.completedBy ?? c.assigneeUid),
               color: _colorForMember(colors, household, c.completedBy ?? c.assigneeUid),
               icono: c.status == 'done' ? Icons.check_circle : Icons.cancel,
             )),
         ...programadas.map((t) => _DetailRow(
               texto: t.title,
-              persona: _nameForMember(household, t.asignadoEnDia(day)),
+              persona: _nameForMember(l10n, household, t.asignadoEnDia(day)),
               color: _colorForMember(colors, household, t.asignadoEnDia(day)),
               icono: Icons.schedule,
               pendiente: true,

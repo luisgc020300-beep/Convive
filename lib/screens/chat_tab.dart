@@ -2,6 +2,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
+import '../l10n/l10n.dart';
 import '../models/chat_message.dart';
 import '../models/household.dart';
 import '../services/chat_service.dart';
@@ -35,6 +36,7 @@ class _ChatTabState extends State<ChatTab> {
   @override
   Widget build(BuildContext context) {
     final myUid = FirebaseAuth.instance.currentUser?.uid;
+    final l10n = context.l10n;
     return Column(
       children: [
         Expanded(
@@ -46,7 +48,7 @@ class _ChatTabState extends State<ChatTab> {
               }
               final messages = snapshot.data ?? [];
               if (messages.isEmpty) {
-                return const Center(child: Text('Todavía no hay mensajes. Saluda.'));
+                return Center(child: Text(l10n.chatEmpty));
               }
               return ListView.builder(
                 reverse: true,
@@ -57,7 +59,7 @@ class _ChatTabState extends State<ChatTab> {
                   final esMio = m.authorUid == myUid;
                   final autor = widget.household.memberProfiles[m.authorUid]
                           ?.displayName ??
-                      'Alguien';
+                      l10n.memberUnknown;
                   return Align(
                     alignment: esMio ? Alignment.centerRight : Alignment.centerLeft,
                     child: Container(
@@ -105,7 +107,7 @@ class _ChatTabState extends State<ChatTab> {
                 Expanded(
                   child: TextField(
                     controller: _textCtrl,
-                    decoration: const InputDecoration(hintText: 'Escribe un mensaje...'),
+                    decoration: InputDecoration(hintText: l10n.chatHint),
                     onSubmitted: (_) => _enviar(),
                     textInputAction: TextInputAction.send,
                   ),

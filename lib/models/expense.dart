@@ -2,6 +2,8 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import '../l10n/l10n.dart';
+
 enum ExpenseCategory { comida, luz, agua, gas, internet, limpieza, casa, ocio, otros }
 
 extension ExpenseCategoryX on ExpenseCategory {
@@ -17,16 +19,16 @@ extension ExpenseCategoryX on ExpenseCategory {
         ExpenseCategory.otros => 'otros',
       };
 
-  String get label => switch (this) {
-        ExpenseCategory.comida => 'Comida',
-        ExpenseCategory.luz => 'Luz',
-        ExpenseCategory.agua => 'Agua',
-        ExpenseCategory.gas => 'Gas',
-        ExpenseCategory.internet => 'Internet',
-        ExpenseCategory.limpieza => 'Limpieza',
-        ExpenseCategory.casa => 'Casa',
-        ExpenseCategory.ocio => 'Ocio',
-        ExpenseCategory.otros => 'Otros',
+  String label(AppLocalizations l10n) => switch (this) {
+        ExpenseCategory.comida => l10n.categoryFood,
+        ExpenseCategory.luz => l10n.categoryElectricity,
+        ExpenseCategory.agua => l10n.categoryWater,
+        ExpenseCategory.gas => l10n.categoryGas,
+        ExpenseCategory.internet => l10n.categoryInternet,
+        ExpenseCategory.limpieza => l10n.categoryCleaning,
+        ExpenseCategory.casa => l10n.categoryHome,
+        ExpenseCategory.ocio => l10n.categoryLeisure,
+        ExpenseCategory.otros => l10n.categoryOther,
       };
 
   IconData get icon => switch (this) {
