@@ -128,18 +128,32 @@ class _HouseholdShellState extends State<_HouseholdShell> {
           stream: _chatStream,
           builder: (context, chatSnapshot) {
             final myUid = FirebaseAuth.instance.currentUser?.uid;
-            final sinLeerChat = (chatSnapshot.data ?? [])
+            var sinLeerChat = (chatSnapshot.data ?? [])
                 .where((m) => m.authorUid != myUid)
                 .where((m) => desdeChat == null || (m.createdAt?.isAfter(desdeChat) ?? false))
                 .length;
+            if (_index == 1 && sinLeerChat > 0) {
+              // Ya estás mirando el chat -- si algo nuevo llega mientras
+              // sigues aquí (sin haber "vuelto a entrar"), el badge no debe
+              // mostrar número, y hay que confirmar como visto para que no
+              // reaparezca al cambiar de pestaña y volver.
+              sinLeerChat = 0;
+              WidgetsBinding.instance
+                  .addPostFrameCallback((_) => HouseholdService.markChatSeen(household.id));
+            }
 
             return StreamBuilder<List<ConviveNote>>(
               stream: _notesStream,
               builder: (context, notesSnapshot) {
-                final sinLeerNotas = (notesSnapshot.data ?? [])
+                var sinLeerNotas = (notesSnapshot.data ?? [])
                     .where((n) => n.authorUid != myUid)
                     .where((n) => desdeNotas == null || (n.createdAt?.isAfter(desdeNotas) ?? false))
                     .length;
+                if (_index == 0 && sinLeerNotas > 0) {
+                  sinLeerNotas = 0;
+                  WidgetsBinding.instance
+                      .addPostFrameCallback((_) => HouseholdService.markNotesSeen(household.id));
+                }
 
                 return Scaffold(
                   appBar: AppBar(
