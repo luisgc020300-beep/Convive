@@ -56,18 +56,43 @@ List<String> _nombresPestanas(AppLocalizations l10n) =>
 class _HouseholdShellState extends State<_HouseholdShell> {
   int _index = 0;
 
+  // Streams estables, creados una sola vez por piso -- si en vez de esto se
+  // llama a HouseholdService.streamLastSeen()/ChatService.streamMessages()/
+  // NoteService.streamNotes() dentro de build(), cada vez que markChatSeen/
+  // markNotesSeen escribe en users/{uid} el StreamBuilder de streamLastSeen
+  // se reconstruye, lo que vuelve a invocar esas llamadas y les da a los
+  // StreamBuilder anidados una instancia de Stream NUEVA en cada rebuild.
+  // Como no es el mismo objeto que antes, se desuscriben y se vuelven a
+  // suscribir en cada escritura -- justo la escritura que se supone que
+  // debía limpiar el contador -- y bajo mala cobertura esa reconexión en
+  // bucle nunca llega a asentarse, dejando el badge visualmente atascado
+  // aunque el dato en Firestore ya esté bien. Verificado el flujo de datos
+  // correcto contra el backend real antes de encontrar este bug -- el fallo
+  // era puramente de reconstrucción de widgets, no de la lógica de conteo.
+  late Stream<Map<String, dynamic>> _lastSeenStream;
+  late Stream<List<ChatMessage>> _chatStream;
+  late Stream<List<ConviveNote>> _notesStream;
+
   @override
   void initState() {
     super.initState();
+    _lastSeenStream = HouseholdService.streamLastSeen();
+    _iniciarStreamsDelPiso();
     // La pestaña por defecto es Tareas -- "entrar" en ella ya cuenta como
     // haber visto las notas, igual que tocarla a mano.
     HouseholdService.markNotesSeen(widget.household.id);
+  }
+
+  void _iniciarStreamsDelPiso() {
+    _chatStream = ChatService.streamMessages(widget.household.id);
+    _notesStream = NoteService.streamNotes(widget.household.id);
   }
 
   @override
   void didUpdateWidget(covariant _HouseholdShell oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.household.id != widget.household.id) {
+      _iniciarStreamsDelPiso();
       // Cambiaste de piso -- "entrar" en él marca como vista la pestaña que
       // ya tuvieras seleccionada, en ese piso nuevo.
       if (_index == 0) HouseholdService.markNotesSeen(widget.household.id);
@@ -92,7 +117,7 @@ class _HouseholdShellState extends State<_HouseholdShell> {
       _PisoTab(household: household),
     ];
     return StreamBuilder<Map<String, dynamic>>(
-      stream: HouseholdService.streamLastSeen(),
+      stream: _lastSeenStream,
       builder: (context, lastSeenSnapshot) {
         final lastSeenChat = lastSeenSnapshot.data?['chat'] as Map<String, dynamic>? ?? const {};
         final lastSeenNotes = lastSeenSnapshot.data?['notes'] as Map<String, dynamic>? ?? const {};
@@ -100,7 +125,7 @@ class _HouseholdShellState extends State<_HouseholdShell> {
         final desdeNotas = (lastSeenNotes[household.id] as Timestamp?)?.toDate();
 
         return StreamBuilder<List<ChatMessage>>(
-          stream: ChatService.streamMessages(household.id),
+          stream: _chatStream,
           builder: (context, chatSnapshot) {
             final myUid = FirebaseAuth.instance.currentUser?.uid;
             final sinLeerChat = (chatSnapshot.data ?? [])
@@ -109,7 +134,7 @@ class _HouseholdShellState extends State<_HouseholdShell> {
                 .length;
 
             return StreamBuilder<List<ConviveNote>>(
-              stream: NoteService.streamNotes(household.id),
+              stream: _notesStream,
               builder: (context, notesSnapshot) {
                 final sinLeerNotas = (notesSnapshot.data ?? [])
                     .where((n) => n.authorUid != myUid)
