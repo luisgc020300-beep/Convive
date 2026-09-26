@@ -78,11 +78,20 @@ class HouseholdService {
         .map(Household.fromDoc);
   }
 
+  /// [requestId] es una clave de idempotencia: si un reintento (p.ej. tras
+  /// un timeout del cliente con mala cobertura, mientras la función ya
+  /// había terminado en el servidor) llega con el mismo valor, el servidor
+  /// devuelve el piso ya creado en vez de crear uno duplicado. La pantalla
+  /// que llama debe generar un valor nuevo por intento de usuario y
+  /// reutilizarlo en sus reintentos automáticos, no uno nuevo cada vez.
   static Future<({String householdId, String joinCode})> createHousehold(
-      String nombre) async {
+      String nombre, {String? requestId}) async {
     final callable = FirebaseFunctions.instanceFor(region: _region)
         .httpsCallable('createHousehold');
-    final result = await callable.call<Map<String, dynamic>>({'name': nombre});
+    final result = await callable.call<Map<String, dynamic>>({
+      'name': nombre,
+      'requestId': ?requestId,
+    });
     final data = result.data;
     return (
       householdId: data['householdId'] as String,

@@ -374,12 +374,44 @@ class _PisoRow extends StatelessWidget {
           leading: Icon(Icons.home_outlined, color: esActivo ? colors.amber : colors.paperMuted),
           title: Text(household.name, style: TextStyle(color: esActivo ? colors.amber : colors.paper)),
           subtitle: Text(l10n.householdPeopleCount(household.members.length)),
-          trailing: esActivo
-              ? Chip(label: Text(l10n.householdActive), backgroundColor: colors.amber.withValues(alpha: 0.18))
-              : null,
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (esActivo) ...[
+                Chip(label: Text(l10n.householdActive), backgroundColor: colors.amber.withValues(alpha: 0.18)),
+                const SizedBox(width: 4),
+              ],
+              IconButton(
+                icon: Icon(Icons.delete_outline, size: 20, color: colors.paperMuted),
+                onPressed: () => _confirmarSalir(context, household),
+              ),
+            ],
+          ),
           onTap: esActivo ? null : () => HouseholdService.switchActiveHousehold(householdId),
         );
       },
     );
+  }
+
+  Future<void> _confirmarSalir(BuildContext context, Household household) async {
+    final l10n = context.l10n;
+    final confirmar = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(l10n.householdLeaveConfirmTitle),
+        content: Text(l10n.householdLeaveConfirmBody(household.name)),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(l10n.cancel)),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: context.colors.rust),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(l10n.leave),
+          ),
+        ],
+      ),
+    );
+    if (confirmar == true) {
+      await HouseholdService.leaveHousehold(household.id);
+    }
   }
 }

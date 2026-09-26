@@ -85,6 +85,21 @@ exports.createHousehold = onCall({ region: REGION }, async (request) => {
   if (!nombre || nombre.length > 60) {
     throw new HttpsError('invalid-argument', 'Nombre de piso inválido.');
   }
+  // Clave de idempotencia que genera el cliente una vez por intento de
+  // creación y reutiliza en cualquier reintento (p.ej. si el timeout salta
+  // en el cliente por mala cobertura pero la función ya había terminado en
+  // el servidor) -- sin esto, cada reintento crea un piso duplicado de
+  // verdad, con el mismo nombre y un solo miembro. Ver
+  // householdCreateRequests más abajo.
+  const requestId = typeof request.data?.requestId === 'string' ? request.data.requestId : null;
+
+  if (requestId) {
+    const reqSnap = await db.collection('householdCreateRequests').doc(requestId).get();
+    if (reqSnap.exists) {
+      const { householdId, joinCode } = reqSnap.data();
+      return { ok: true, householdId, joinCode };
+    }
+  }
 
   const userSnap = await db.collection('users').doc(uid).get();
   const userData = userSnap.exists ? userSnap.data() : {};
@@ -110,6 +125,14 @@ exports.createHousehold = onCall({ region: REGION }, async (request) => {
       activeHouseholdId: householdRef.id,
       householdIds: FieldValue.arrayUnion(householdRef.id),
     }, { merge: true });
+    if (requestId) {
+      tx.set(db.collection('householdCreateRequests').doc(requestId), {
+        householdId: householdRef.id,
+        joinCode,
+        uid,
+        createdAt: FieldValue.serverTimestamp(),
+      });
+    }
   });
 
   return { ok: true, householdId: householdRef.id, joinCode };
@@ -228,9 +251,13 @@ exports.leaveHousehold = onCall({ region: REGION }, async (request) => {
   const householdRef = db.collection('households').doc(householdId);
   const userRef = db.collection('users').doc(uid);
 
+  let quedaVacio = false;
+
   await db.runTransaction(async (tx) => {
     const [houseSnap, userSnap] = await Promise.all([tx.get(householdRef), tx.get(userRef)]);
     if (houseSnap.exists) {
+      const restantes = (houseSnap.data().members || []).filter((m) => m !== uid);
+      quedaVacio = restantes.length === 0;
       tx.update(householdRef, {
         members: FieldValue.arrayRemove(uid),
         [`memberProfiles.${uid}`]: FieldValue.delete(),
@@ -246,6 +273,18 @@ exports.leaveHousehold = onCall({ region: REGION }, async (request) => {
       activeHouseholdId: eraActivo ? (householdIds[0] || null) : (userSnap.data() || {}).activeHouseholdId,
     }, { merge: true });
   });
+
+  // Si ya no le queda nadie dentro, el piso no sirve para nada -- caso real
+  // que motivó esto: un piso temporal de una semana con amigos que nadie
+  // quiere seguir teniendo ahí una vez termina. Se borra de verdad
+  // (tareas/notas/chat/gastos/recordatorios incluidos), no se deja como
+  // basura huérfana en Firestore para siempre. Fuera de la transacción
+  // porque recursiveDelete no es transaccional.
+  if (quedaVacio) {
+    await db.recursiveDelete(householdRef);
+    const codigosViejos = await db.collection('joinCodes').where('householdId', '==', householdId).get();
+    await Promise.all(codigosViejos.docs.map((d) => d.ref.delete()));
+  }
 
   return { ok: true };
 });

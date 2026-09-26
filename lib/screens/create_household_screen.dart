@@ -1,4 +1,6 @@
 // lib/screens/create_household_screen.dart
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 
 import '../l10n/l10n.dart';
@@ -14,6 +16,11 @@ class CreateHouseholdScreen extends StatefulWidget {
 class _CreateHouseholdScreenState extends State<CreateHouseholdScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nombreCtrl = TextEditingController();
+  // Misma clave para todos los reintentos de este intento de creación --
+  // si el primer toque llegó a buen puerto en el servidor pero el cliente
+  // no se enteró (timeout con mala cobertura) y el usuario vuelve a pulsar
+  // "Crear piso", el servidor detecta la clave repetida y no duplica el piso.
+  final _requestId = '${DateTime.now().microsecondsSinceEpoch}-${Random().nextInt(1 << 32)}';
   bool _cargando = false;
   String? _error;
 
@@ -28,7 +35,10 @@ class _CreateHouseholdScreenState extends State<CreateHouseholdScreen> {
     setState(() { _cargando = true; _error = null; });
     final l10n = context.l10n;
     try {
-      final result = await HouseholdService.createHousehold(_nombreCtrl.text.trim());
+      final result = await HouseholdService.createHousehold(
+        _nombreCtrl.text.trim(),
+        requestId: _requestId,
+      );
       if (!mounted) return;
       await showDialog<void>(
         context: context,
