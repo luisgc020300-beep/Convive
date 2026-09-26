@@ -85,6 +85,15 @@
 
   "chatEmpty": "Todavía no hay mensajes. Saluda.",
   "chatHint": "Escribe un mensaje...",
+  "chatDeleteMessage": "Borrar mensaje",
+  "chatSystemTaskCompleted": "{name} completó: {task}",
+  "@chatSystemTaskCompleted": {"placeholders": {"name": {"type": "String"}, "task": {"type": "String"}}},
+  "chatSystemExpenseAdded": "{name} añadió un gasto: {description} ({amount}€)",
+  "@chatSystemExpenseAdded": {"placeholders": {"name": {"type": "String"}, "description": {"type": "String"}, "amount": {"type": "String"}}},
+  "chatSystemReminderAdded": "{name} creó un recordatorio: {title}",
+  "@chatSystemReminderAdded": {"placeholders": {"name": {"type": "String"}, "title": {"type": "String"}}},
+  "chatSystemNoteAdded": "{name} clavó una nota: {text}",
+  "@chatSystemNoteAdded": {"placeholders": {"name": {"type": "String"}, "text": {"type": "String"}}},
 
   "paymentsExpensesTitle": "Gastos comunes",
   "paymentsNew": "Nuevo",

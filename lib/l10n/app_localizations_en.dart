@@ -236,6 +236,33 @@ class AppLocalizationsEn extends AppLocalizations {
   String get chatHint => 'Type a message...';
 
   @override
+  String get chatDeleteMessage => 'Delete message';
+
+  @override
+  String chatSystemTaskCompleted(String name, String task) {
+    return '$name completed: $task';
+  }
+
+  @override
+  String chatSystemExpenseAdded(
+    String name,
+    String description,
+    String amount,
+  ) {
+    return '$name added an expense: $description ($amount€)';
+  }
+
+  @override
+  String chatSystemReminderAdded(String name, String title) {
+    return '$name created a reminder: $title';
+  }
+
+  @override
+  String chatSystemNoteAdded(String name, String text) {
+    return '$name pinned a note: $text';
+  }
+
+  @override
   String get paymentsExpensesTitle => 'Shared expenses';
 
   @override

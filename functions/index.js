@@ -412,6 +412,18 @@ exports.completeTask = onCall({ region: REGION }, async (request) => {
     });
 
     tx.update(taskRef, { lastCompletionDay: claveDia(ahoraMs) });
+
+    // Mensaje de sistema en el chat -- feed de actividad del piso, para que
+    // el chat de Convive muestre cosas que WhatsApp no puede (que alguien
+    // completó una tarea), sin generar un push nuevo (ver notificarMensajeNuevo).
+    const nombreCompletador = houseSnap.data().memberProfiles?.[uid]?.displayName || 'Alguien';
+    tx.set(householdRef.collection('messages').doc(), {
+      type: 'system',
+      event: 'taskCompleted',
+      eventData: { memberName: nombreCompletador, taskTitle: task.title || '' },
+      createdAt: FieldValue.serverTimestamp(),
+    });
+
     return { completionId: completionRef.id };
   });
 
@@ -596,6 +608,13 @@ exports.notificarGastoNuevo = onDocumentCreated(
       if (!prefs.nuevoGasto) continue;
       await enviarPush(uid, 'Convive', `${nombrePagador} ha añadido un gasto: ${gasto.description} (${Number(gasto.amount).toFixed(2)}€)`, { type: 'nuevoGasto' });
     }
+
+    await db.collection('households').doc(householdId).collection('messages').add({
+      type: 'system',
+      event: 'expenseAdded',
+      eventData: { memberName: nombrePagador, description: gasto.description || '', amount: Number(gasto.amount) || 0 },
+      createdAt: FieldValue.serverTimestamp(),
+    });
   }
 );
 
@@ -618,6 +637,35 @@ exports.notificarNotaNueva = onDocumentCreated(
       if (!prefs.nuevaNota) continue;
       await enviarPush(uid, 'Convive', `${nombreAutor} ha clavado una nota: ${nota.text}`, { type: 'nuevaNota' });
     }
+
+    await db.collection('households').doc(householdId).collection('messages').add({
+      type: 'system',
+      event: 'noteAdded',
+      eventData: { memberName: nombreAutor, text: nota.text || '' },
+      createdAt: FieldValue.serverTimestamp(),
+    });
+  }
+);
+
+// =============================================================================
+// 9b. FEED DE ACTIVIDAD — recordatorio nuevo (sin push propio todavía, solo
+// mensaje de sistema en el chat)
+// =============================================================================
+exports.agregarMensajeRecordatorioNuevo = onDocumentCreated(
+  { document: 'households/{householdId}/reminders/{reminderId}', region: REGION },
+  async (event) => {
+    const recordatorio = event.data.data();
+    const { householdId } = event.params;
+    const houseSnap = await db.collection('households').doc(householdId).get();
+    if (!houseSnap.exists) return;
+    const nombreAutor = houseSnap.data().memberProfiles?.[recordatorio.createdBy]?.displayName || 'Alguien';
+
+    await db.collection('households').doc(householdId).collection('messages').add({
+      type: 'system',
+      event: 'reminderAdded',
+      eventData: { memberName: nombreAutor, title: recordatorio.title || '' },
+      createdAt: FieldValue.serverTimestamp(),
+    });
   }
 );
 
@@ -628,6 +676,11 @@ exports.notificarMensajeNuevo = onDocumentCreated(
   { document: 'households/{householdId}/messages/{messageId}', region: REGION },
   async (event) => {
     const mensaje = event.data.data();
+    // Los mensajes de sistema (feed de actividad: tarea completada, gasto/
+    // nota nuevos) ya generan su propio aviso específico donde corresponde
+    // -- avisar aquí también sería un push duplicado para quien tenga las
+    // dos categorías activadas.
+    if (mensaje.type === 'system') return;
     const { householdId } = event.params;
     const houseSnap = await db.collection('households').doc(householdId).get();
     if (!houseSnap.exists) return;

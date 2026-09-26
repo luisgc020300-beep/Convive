@@ -524,6 +524,36 @@ abstract class AppLocalizations {
   /// **'Escribe un mensaje...'**
   String get chatHint;
 
+  /// No description provided for @chatDeleteMessage.
+  ///
+  /// In es, this message translates to:
+  /// **'Borrar mensaje'**
+  String get chatDeleteMessage;
+
+  /// No description provided for @chatSystemTaskCompleted.
+  ///
+  /// In es, this message translates to:
+  /// **'{name} completó: {task}'**
+  String chatSystemTaskCompleted(String name, String task);
+
+  /// No description provided for @chatSystemExpenseAdded.
+  ///
+  /// In es, this message translates to:
+  /// **'{name} añadió un gasto: {description} ({amount}€)'**
+  String chatSystemExpenseAdded(String name, String description, String amount);
+
+  /// No description provided for @chatSystemReminderAdded.
+  ///
+  /// In es, this message translates to:
+  /// **'{name} creó un recordatorio: {title}'**
+  String chatSystemReminderAdded(String name, String title);
+
+  /// No description provided for @chatSystemNoteAdded.
+  ///
+  /// In es, this message translates to:
+  /// **'{name} clavó una nota: {text}'**
+  String chatSystemNoteAdded(String name, String text);
+
   /// No description provided for @paymentsExpensesTitle.
   ///
   /// In es, this message translates to:

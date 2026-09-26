@@ -236,6 +236,33 @@ class AppLocalizationsEs extends AppLocalizations {
   String get chatHint => 'Escribe un mensaje...';
 
   @override
+  String get chatDeleteMessage => 'Borrar mensaje';
+
+  @override
+  String chatSystemTaskCompleted(String name, String task) {
+    return '$name completó: $task';
+  }
+
+  @override
+  String chatSystemExpenseAdded(
+    String name,
+    String description,
+    String amount,
+  ) {
+    return '$name añadió un gasto: $description ($amount€)';
+  }
+
+  @override
+  String chatSystemReminderAdded(String name, String title) {
+    return '$name creó un recordatorio: $title';
+  }
+
+  @override
+  String chatSystemNoteAdded(String name, String text) {
+    return '$name clavó una nota: $text';
+  }
+
+  @override
   String get paymentsExpensesTitle => 'Gastos comunes';
 
   @override

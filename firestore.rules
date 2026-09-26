@@ -39,7 +39,12 @@ service cloud.firestore {
 
       match /messages/{messageId} {
         allow read, create: if isAuth() && isMember(hid);
-        allow update: if false; // append-only, sin edición en v1
+        // El texto es append-only (nunca se edita), pero las reacciones sí
+        // se pueden tocar -- el update solo se permite si el ÚNICO campo
+        // que cambia es "reactions", para que nadie pueda reescribir el
+        // texto/autor de un mensaje ajeno a través de esta vía.
+        allow update: if isAuth() && isMember(hid)
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reactions']);
         allow delete: if isAuth() && isOwner(resource.data.authorUid);
       }
 
