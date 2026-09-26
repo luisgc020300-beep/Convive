@@ -19,7 +19,12 @@ import '../models/task.dart';
 import '../services/reminder_service.dart';
 import '../services/task_service.dart';
 import '../theme/design_tokens.dart';
+import '../widgets/app_error.dart';
 import '../widgets/corkboard.dart';
+
+// Igual que CORRECCION_MAX_DIAS en functions/index.js -- para no ofrecer un
+// botón de "marcar hecha" que el servidor va a rechazar de todas formas.
+const _correccionMaxDias = 7;
 
 List<Color> _memberColors(ConviveColorsExt colors) => [
       colors.amber, colors.coral, colors.mint,
@@ -34,8 +39,12 @@ Color _colorForMember(ConviveColorsExt colors, Household household, String? uid)
   return paleta[i % paleta.length];
 }
 
-String _nameForMember(AppLocalizations l10n, Household household, String? uid) =>
-    household.memberProfiles[uid]?.displayName ?? l10n.memberUnknown;
+String? _primero(List<String> uids) => uids.isEmpty ? null : uids.first;
+
+String _nameForMembers(AppLocalizations l10n, Household household, List<String> uids) {
+  if (uids.isEmpty) return l10n.memberUnknown;
+  return joinNames(l10n, uids.map((uid) => household.memberProfiles[uid]?.displayName ?? l10n.memberUnknown).toList());
+}
 
 bool _sameDay(DateTime a, DateTime b) =>
     a.year == b.year && a.month == b.month && a.day == b.day;
@@ -93,6 +102,19 @@ class _WeeklyCalendarState extends State<WeeklyCalendar> {
       _monthOffset = 0;
       _selectedDay = _todayMidnight();
     });
+  }
+
+  Future<void> _marcarHecha(ConviveTask task, DateTime day) async {
+    final l10n = context.l10n;
+    try {
+      await TaskService.completeTask(
+        householdId: widget.household.id,
+        taskId: task.id,
+        occurrenceDate: day,
+      );
+    } catch (e) {
+      if (mounted) AppError.show(context, l10n.errorGeneric);
+    }
   }
 
   @override
@@ -210,6 +232,7 @@ class _WeeklyCalendarState extends State<WeeklyCalendar> {
                           .where((c) => c.occurrenceDate != null && _sameDay(c.occurrenceDate!, _selectedDay))
                           .toList(),
                       reminders: reminders.where((r) => _reminderOcurreEnDia(r, _selectedDay)).toList(),
+                      onMarcarHecha: (task) => _marcarHecha(task, _selectedDay),
                     ),
                     const SizedBox(height: 8),
                     Row(
@@ -463,6 +486,7 @@ class _DayDetail extends StatelessWidget {
     required this.day,
     required this.completions,
     required this.reminders,
+    required this.onMarcarHecha,
   });
 
   final Household household;
@@ -470,16 +494,33 @@ class _DayDetail extends StatelessWidget {
   final DateTime day;
   final List<TaskCompletion> completions;
   final List<PaymentReminder> reminders;
+  final void Function(ConviveTask task) onMarcarHecha;
+
+  // Mismo límite que CORRECCION_MAX_DIAS del servidor -- no ofrecer un botón
+  // que la Cloud Function va a rechazar de todas formas.
+  bool get _corregible {
+    final hoy = DateTime.now();
+    final hoyMedianoche = DateTime(hoy.year, hoy.month, hoy.day);
+    if (day.isAfter(hoyMedianoche)) return false;
+    return hoyMedianoche.difference(day).inDays <= _correccionMaxDias;
+  }
 
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
     final l10n = context.l10n;
+    final tasksPorId = {for (final t in tasks) t.id: t};
+    // El historial es append-only -- si un día se corrigió (se marcó "hecha"
+    // después de haberse registrado como "fallada"), las dos quedan
+    // guardadas. "Hecha" gana siempre en lo que se muestra.
+    final hechas = completions.where((c) => c.status == 'done').toList();
+    final hechasIds = hechas.map((c) => c.taskId).toSet();
+    final falladas = completions.where((c) => c.status == 'missed' && !hechasIds.contains(c.taskId)).toList();
     final programadas = tasks
         .where((t) => t.ocurreEnDia(day) && !completions.any((c) => c.taskId == t.id))
         .toList();
 
-    if (completions.isEmpty && programadas.isEmpty && reminders.isEmpty) {
+    if (hechas.isEmpty && falladas.isEmpty && programadas.isEmpty && reminders.isEmpty) {
       return Padding(
         padding: const EdgeInsets.symmetric(vertical: 8),
         child: Text(
@@ -498,19 +539,33 @@ class _DayDetail extends StatelessWidget {
               color: colors.mint,
               icono: Icons.attach_money,
             )),
-        ...completions.map((c) => _DetailRow(
+        ...hechas.map((c) => _DetailRow(
               texto: c.taskTitle,
-              persona: _nameForMember(l10n, household, c.completedBy ?? c.assigneeUid),
-              color: _colorForMember(colors, household, c.completedBy ?? c.assigneeUid),
-              icono: c.status == 'done' ? Icons.check_circle : Icons.cancel,
+              persona: _nameForMembers(l10n, household, c.completedBy != null ? [c.completedBy!] : c.assigneeUids),
+              color: _colorForMember(colors, household, c.completedBy ?? _primero(c.assigneeUids)),
+              icono: Icons.check_circle,
             )),
-        ...programadas.map((t) => _DetailRow(
-              texto: t.title,
-              persona: _nameForMember(l10n, household, t.asignadoEnDia(day)),
-              color: _colorForMember(colors, household, t.asignadoEnDia(day)),
-              icono: Icons.schedule,
-              pendiente: true,
-            )),
+        ...falladas.map((c) {
+          final task = tasksPorId[c.taskId];
+          return _DetailRow(
+            texto: c.taskTitle,
+            persona: _nameForMembers(l10n, household, c.assigneeUids),
+            color: _colorForMember(colors, household, _primero(c.assigneeUids)),
+            icono: Icons.cancel,
+            accion: (_corregible && task != null) ? () => onMarcarHecha(task) : null,
+          );
+        }),
+        ...programadas.map((t) {
+          final asignados = t.asignadosEnDia(day);
+          return _DetailRow(
+            texto: t.title,
+            persona: _nameForMembers(l10n, household, asignados),
+            color: _colorForMember(colors, household, _primero(asignados)),
+            icono: Icons.schedule,
+            pendiente: !_corregible,
+            accion: _corregible ? () => onMarcarHecha(t) : null,
+          );
+        }),
       ],
     );
   }
@@ -523,6 +578,7 @@ class _DetailRow extends StatelessWidget {
     required this.color,
     required this.icono,
     this.pendiente = false,
+    this.accion,
   });
 
   final String texto;
@@ -530,6 +586,7 @@ class _DetailRow extends StatelessWidget {
   final Color color;
   final IconData icono;
   final bool pendiente;
+  final VoidCallback? accion;
 
   @override
   Widget build(BuildContext context) {
@@ -549,6 +606,14 @@ class _DetailRow extends StatelessWidget {
               ),
             ),
           ),
+          if (accion != null)
+            IconButton(
+              icon: Icon(Icons.check_circle_outline, size: 18, color: context.colors.mint),
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
+              visualDensity: VisualDensity.compact,
+              onPressed: accion,
+            ),
         ],
       ),
     );

@@ -230,6 +230,40 @@ class AppLocalizationsEs extends AppLocalizations {
   String get recurrenceEveryNDays => 'Cada X días';
 
   @override
+  String get taskCategoryKitchen => 'Cocina';
+
+  @override
+  String get taskCategoryBathroom => 'Baño';
+
+  @override
+  String get taskCategoryLivingRoom => 'Salón';
+
+  @override
+  String get taskCategoryBedroom => 'Dormitorio';
+
+  @override
+  String get taskCategoryOther => 'Otros';
+
+  @override
+  String get tasksAssignModeRotate => 'Rotar entre todos';
+
+  @override
+  String get tasksAssignModeFixed => 'Fijar en concreto';
+
+  @override
+  String get tasksAssignModeFixedHint =>
+      'Elige quién (una persona o varias, sin rotar)';
+
+  @override
+  String get tasksMarkDoneOtherDay => 'Marcar como hecha';
+
+  @override
+  String get tasksAlreadyDone => 'Ya estaba hecha';
+
+  @override
+  String get namesJoinerLast => ' y ';
+
+  @override
   String get chatEmpty => 'Todavía no hay mensajes. Saluda.';
 
   @override

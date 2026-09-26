@@ -349,6 +349,16 @@ function asignadoEnDia(task, diaMs) {
   return orden[ocurrencia % orden.length];
 }
 
+// Igual que asignadoEnDia (Dart) -- si la tarea tiene gente fija en
+// assigneeUids, esa gente SIEMPRE es la respuesta (sin rotar); si no, se
+// envuelve el resultado de la rotación clásica en una lista de 1.
+function asignadosEnDia(task, diaMs) {
+  if (!ocurreEnDia(task, diaMs)) return [];
+  if ((task.assigneeUids || []).length > 0) return task.assigneeUids;
+  const unico = asignadoEnDia(task, diaMs);
+  return unico ? [unico] : [];
+}
+
 // Clave de día en UTC -- mismo criterio horario que usa el cron (04:00 UTC),
 // para no mezclar dos formas distintas de decidir "qué día es hoy".
 function claveDia(ms) {
@@ -364,6 +374,14 @@ function claveDia(ms) {
 // historial de hoy y anota que hoy ya se completó, para que no se pueda
 // repetir. Transaccional para que dos toques casi simultáneos no cuenten
 // los dos.
+// [occurrenceDateMs] es opcional -- si no se manda, es "hoy" (comportamiento
+// de siempre). Si se manda un día pasado (hasta CORRECCION_MAX_DIAS atrás),
+// permite corregir "se me olvidó pulsar Hecho ese día" sin tener que dejar
+// la tarea marcada como "missed" para siempre -- queja real encontrada en
+// apps de la competencia (Sweepy: no se puede marcar hecha una tarea de un
+// día anterior).
+const CORRECCION_MAX_DIAS = 7;
+
 exports.completeTask = onCall({ region: REGION }, async (request) => {
   if (!request.auth) {
     throw new HttpsError('unauthenticated', 'Debes estar autenticado.');
@@ -373,6 +391,17 @@ exports.completeTask = onCall({ region: REGION }, async (request) => {
   const taskId = request.data?.taskId;
   if (!householdId || !taskId) {
     throw new HttpsError('invalid-argument', 'Faltan datos.');
+  }
+  const ahoraMs = Date.now();
+  const ocurrenciaMs = typeof request.data?.occurrenceDateMs === 'number'
+      ? request.data.occurrenceDateMs
+      : ahoraMs;
+  const esHoy = claveDia(ocurrenciaMs) === claveDia(ahoraMs);
+  if (medianocheUTC(ocurrenciaMs) > medianocheUTC(ahoraMs)) {
+    throw new HttpsError('invalid-argument', 'No se puede completar un día futuro.');
+  }
+  if (medianocheUTC(ahoraMs) - medianocheUTC(ocurrenciaMs) > CORRECCION_MAX_DIAS * DIA_MS) {
+    throw new HttpsError('invalid-argument', `Solo se puede corregir hasta ${CORRECCION_MAX_DIAS} días atrás.`);
   }
 
   const householdRef = db.collection('households').doc(householdId);
@@ -387,31 +416,47 @@ exports.completeTask = onCall({ region: REGION }, async (request) => {
     if (!taskSnap.exists) throw new HttpsError('not-found', 'La tarea no existe.');
     const task = taskSnap.data();
 
-    const ahoraMs = Date.now();
-    if (task.lastCompletionDay === claveDia(ahoraMs)) {
+    if (esHoy && task.lastCompletionDay === claveDia(ahoraMs)) {
       // Sin este freno, cada toque de "Hecho" crea una compleción nueva sin
       // límite -- se puede completar la misma tarea decenas de veces
       // seguidas en segundos.
       throw new HttpsError('failed-precondition', 'Esta tarea ya se ha marcado como hecha hoy.');
     }
-    if (task.anchorDate && !ocurreEnDia(task, ahoraMs)) {
-      // Defensivo -- la UI no debería dejar llegar aquí si hoy no le toca,
-      // pero si pasa (p.ej. dos pestañas abiertas) no debe colar un dato falso.
-      throw new HttpsError('failed-precondition', 'Esta tarea no toca hoy.');
+    if (task.anchorDate && !ocurreEnDia(task, ocurrenciaMs)) {
+      // Defensivo -- la UI no debería dejar llegar aquí si ese día no le
+      // tocaba, pero si pasa no debe colar un dato falso.
+      throw new HttpsError('failed-precondition', 'Esta tarea no toca ese día.');
+    }
+
+    if (!esHoy) {
+      // El historial es append-only (no se puede reescribir un "missed"
+      // existente para ese día), así que hay que comprobar a mano que no
+      // se esté duplicando un "done" que ya se corrigió antes.
+      const historialSnap = await tx.get(householdRef.collection('completions').where('taskId', '==', taskId));
+      const claveOcurrencia = claveDia(ocurrenciaMs);
+      const yaHecho = historialSnap.docs.some((docSnap) => {
+        const c = docSnap.data();
+        return c.status === 'done' && c.occurrenceDate && claveDia(c.occurrenceDate.toMillis()) === claveOcurrencia;
+      });
+      if (yaHecho) {
+        throw new HttpsError('failed-precondition', 'Ese día ya estaba marcado como hecho.');
+      }
     }
 
     const completionRef = householdRef.collection('completions').doc();
     tx.set(completionRef, {
       taskId,
       taskTitle: task.title || '',
-      assigneeUid: task.anchorDate ? asignadoEnDia(task, ahoraMs) : (task.currentAssigneeUid || null),
-      occurrenceDate: Timestamp.fromMillis(medianocheUTC(ahoraMs)),
+      assigneeUids: task.anchorDate ? asignadosEnDia(task, ocurrenciaMs) : [],
+      occurrenceDate: Timestamp.fromMillis(medianocheUTC(ocurrenciaMs)),
       status: 'done',
       completedAt: FieldValue.serverTimestamp(),
       completedBy: uid,
     });
 
-    tx.update(taskRef, { lastCompletionDay: claveDia(ahoraMs) });
+    if (esHoy) {
+      tx.update(taskRef, { lastCompletionDay: claveDia(ahoraMs) });
+    }
 
     // Mensaje de sistema en el chat -- feed de actividad del piso, para que
     // el chat de Convive muestre cosas que WhatsApp no puede (que alguien
@@ -463,7 +508,7 @@ exports.generateRecurringPeriods = onSchedule(
         batch.set(completionRef, {
           taskId: taskDoc.id,
           taskTitle: task.title || '',
-          assigneeUid: asignadoEnDia(task, ayerMs),
+          assigneeUids: asignadosEnDia(task, ayerMs),
           occurrenceDate: Timestamp.fromMillis(medianocheUTC(ayerMs)),
           status: 'missed',
           completedAt: null,
@@ -501,12 +546,14 @@ exports.notificarTareasDelDia = onSchedule(
         const task = taskDoc.data();
         if (!task.anchorDate) continue;
 
-        const hoyUid = asignadoEnDia(task, hoyMs);
-        if (hoyUid) (hoyPorUid[hoyUid] ||= []).push(task.title || 'tarea');
+        for (const hoyUid of asignadosEnDia(task, hoyMs)) {
+          (hoyPorUid[hoyUid] ||= []).push(task.title || 'tarea');
+        }
 
         if (ocurreEnDia(task, ayerMs) && task.lastCompletionDay !== claveDia(ayerMs)) {
-          const ayerUid = asignadoEnDia(task, ayerMs);
-          if (ayerUid) (ayerPorUid[ayerUid] ||= []).push(task.title || 'tarea');
+          for (const ayerUid of asignadosEnDia(task, ayerMs)) {
+            (ayerPorUid[ayerUid] ||= []).push(task.title || 'tarea');
+          }
         }
       }
 

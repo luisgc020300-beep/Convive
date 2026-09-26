@@ -74,6 +74,11 @@ class TasksTab extends StatelessWidget {
     RecurrenceType tipo = RecurrenceType.weekly;
     final intervalCtrl = TextEditingController(text: '3');
     int diaSemana = anchorDate.weekday;
+    TaskCategory categoria = TaskCategory.other;
+    // Fijo por defecto vacío -- si se deja así, se crea en modo rotación
+    // (comportamiento de siempre) con todos los miembros del piso.
+    var fijar = false;
+    final asignadosFijos = <String>{};
     final l10n = context.l10n;
     final nombresDias = diasLargos(context);
 
@@ -87,6 +92,26 @@ class TasksTab extends StatelessWidget {
           TextField(
             controller: tituloCtrl,
             decoration: InputDecoration(hintText: l10n.tasksTitleHint),
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            children: TaskCategory.values.map((cat) {
+              final seleccionada = cat == categoria;
+              return ChoiceChip(
+                selected: seleccionada,
+                label: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(cat.icon, size: 15, color: seleccionada ? context.colors.onAccent : context.colors.paperMuted),
+                    const SizedBox(width: 4),
+                    Text(cat.label(l10n)),
+                  ],
+                ),
+                selectedColor: context.colors.amber,
+                onSelected: (_) => setState(() => categoria = cat),
+              );
+            }).toList(),
           ),
           const SizedBox(height: 12),
           DropdownButtonFormField<RecurrenceType>(
@@ -118,15 +143,41 @@ class TasksTab extends StatelessWidget {
               decoration: InputDecoration(hintText: l10n.tasksIntervalHint),
             ),
           ],
+          const SizedBox(height: 12),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            activeThumbColor: context.colors.amber,
+            value: fijar,
+            title: Text(fijar ? l10n.tasksAssignModeFixed : l10n.tasksAssignModeRotate),
+            subtitle: fijar ? Text(l10n.tasksAssignModeFixedHint) : null,
+            onChanged: (v) => setState(() => fijar = v),
+          ),
+          if (fijar)
+            ...household.members.map((uid) => CheckboxListTile(
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
+                  activeColor: context.colors.amber,
+                  value: asignadosFijos.contains(uid),
+                  title: Text(household.memberProfiles[uid]?.displayName ?? l10n.memberUnknown),
+                  onChanged: (v) => setState(() {
+                    if (v == true) {
+                      asignadosFijos.add(uid);
+                    } else {
+                      asignadosFijos.remove(uid);
+                    }
+                  }),
+                )),
           const SizedBox(height: 20),
           FilledButton(
             onPressed: () async {
               final titulo = tituloCtrl.text.trim();
               if (titulo.isEmpty) return;
+              if (fijar && asignadosFijos.isEmpty) return;
               try {
                 await TaskService.createTask(
                   householdId: household.id,
                   title: titulo,
+                  category: categoria,
                   recurrenceType: tipo,
                   anchorDate: anchorDate,
                   dayOfWeek: tipo == RecurrenceType.weekly ? diaSemana : null,
@@ -134,6 +185,7 @@ class TasksTab extends StatelessWidget {
                       ? int.tryParse(intervalCtrl.text)
                       : null,
                   rotationOrder: household.members,
+                  assigneeUids: fijar ? asignadosFijos.toList() : const [],
                 );
                 if (ctx.mounted) Navigator.pop(ctx);
               } catch (e) {
@@ -157,9 +209,14 @@ class _TaskCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    final asignadoUid = task.asignadoEnDia(DateTime.now());
-    final asignado = household.memberProfiles[asignadoUid]?.displayName ?? l10n.memberUnknown;
-    final esMiTurno = asignadoUid == FirebaseAuth.instance.currentUser?.uid;
+    final asignadosUids = task.asignadosEnDia(DateTime.now());
+    final asignado = asignadosUids.isEmpty
+        ? l10n.memberUnknown
+        : joinNames(
+            l10n,
+            asignadosUids.map((uid) => household.memberProfiles[uid]?.displayName ?? l10n.memberUnknown).toList(),
+          );
+    final esMiTurno = asignadosUids.contains(FirebaseAuth.instance.currentUser?.uid);
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
@@ -170,6 +227,8 @@ class _TaskCard extends StatelessWidget {
       ),
       child: Row(
         children: [
+          Icon(task.category.icon, size: 18, color: context.colors.paperMuted),
+          const SizedBox(width: 10),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,

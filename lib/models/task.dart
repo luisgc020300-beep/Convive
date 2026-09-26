@@ -9,6 +9,7 @@
 // suposición. Esto es lo que permite que el calendario proyecte de verdad
 // hacia el futuro para tareas semanales y "cada X días".
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/material.dart';
 
 import '../l10n/l10n.dart';
 
@@ -34,27 +35,72 @@ extension RecurrenceTypeX on RecurrenceType {
       };
 }
 
+/// Categoría de la tarea -- puramente informativa (icono + filtro visual),
+/// no cambia ninguna lógica de asignación ni de recurrencia.
+enum TaskCategory { kitchen, bathroom, livingRoom, bedroom, other }
+
+extension TaskCategoryX on TaskCategory {
+  String get wireValue => switch (this) {
+        TaskCategory.kitchen => 'kitchen',
+        TaskCategory.bathroom => 'bathroom',
+        TaskCategory.livingRoom => 'living_room',
+        TaskCategory.bedroom => 'bedroom',
+        TaskCategory.other => 'other',
+      };
+
+  IconData get icon => switch (this) {
+        TaskCategory.kitchen => Icons.kitchen_outlined,
+        TaskCategory.bathroom => Icons.bathtub_outlined,
+        TaskCategory.livingRoom => Icons.weekend_outlined,
+        TaskCategory.bedroom => Icons.bed_outlined,
+        TaskCategory.other => Icons.checklist_rounded,
+      };
+
+  String label(AppLocalizations l10n) => switch (this) {
+        TaskCategory.kitchen => l10n.taskCategoryKitchen,
+        TaskCategory.bathroom => l10n.taskCategoryBathroom,
+        TaskCategory.livingRoom => l10n.taskCategoryLivingRoom,
+        TaskCategory.bedroom => l10n.taskCategoryBedroom,
+        TaskCategory.other => l10n.taskCategoryOther,
+      };
+
+  static TaskCategory fromWire(String? v) => switch (v) {
+        'kitchen' => TaskCategory.kitchen,
+        'bathroom' => TaskCategory.bathroom,
+        'living_room' => TaskCategory.livingRoom,
+        'bedroom' => TaskCategory.bedroom,
+        _ => TaskCategory.other,
+      };
+}
+
 DateTime _medianoche(DateTime d) => DateTime(d.year, d.month, d.day);
 
 class ConviveTask {
   final String id;
   final String title;
+  final TaskCategory category;
   final RecurrenceType recurrenceType;
   final int? intervalDays; // solo everyNDays
   final int? dayOfWeek; // solo weekly -- 1=lunes .. 7=domingo (DateTime.weekday)
   final DateTime anchorDate; // fecha fija de referencia para toda la aritmética
   final List<String> rotationOrder;
+  // Si no está vacío, la tarea NO rota -- son SIEMPRE estas personas (una
+  // para "fija", dos o más para "compartida"), todos los días que toque.
+  // Vacío = comportamiento de siempre (rotationOrder cíclico).
+  final List<String> assigneeUids;
   final bool active;
   final String? lastCompletionDay;
 
   const ConviveTask({
     required this.id,
     required this.title,
+    this.category = TaskCategory.other,
     required this.recurrenceType,
     this.intervalDays,
     this.dayOfWeek,
     required this.anchorDate,
     required this.rotationOrder,
+    this.assigneeUids = const [],
     required this.active,
     this.lastCompletionDay,
   });
@@ -83,8 +129,20 @@ class ConviveTask {
     }
   }
 
-  /// A quién le toca esta tarea el día [day] -- null si ese día no le toca
-  /// a la tarea o si el piso no tiene miembros en la rotación.
+  /// A quién le toca esta tarea el día [day] -- lista vacía si ese día no
+  /// le toca a la tarea. Si [assigneeUids] tiene gente fija, esa gente SIEMPRE
+  /// es la respuesta (sin rotar); si no, rota por [rotationOrder] como
+  /// siempre (un solo nombre).
+  List<String> asignadosEnDia(DateTime day) {
+    if (!ocurreEnDia(day)) return const [];
+    if (assigneeUids.isNotEmpty) return assigneeUids;
+    final unico = asignadoEnDia(day);
+    return unico == null ? const [] : [unico];
+  }
+
+  /// Versión de un solo nombre (rotación clásica) -- se mantiene para no
+  /// tocar el cálculo de rotación en sí, [asignadosEnDia] es la que debe
+  /// usar la UI de aquí en adelante.
   String? asignadoEnDia(DateTime day) {
     if (rotationOrder.isEmpty || !ocurreEnDia(day)) return null;
     final ancla = _medianoche(anchorDate);
@@ -116,11 +174,13 @@ class ConviveTask {
     return ConviveTask(
       id: doc.id,
       title: d['title'] as String? ?? '',
+      category: TaskCategoryX.fromWire(d['category'] as String?),
       recurrenceType: RecurrenceTypeX.fromWire(recurrence['type'] as String?),
       intervalDays: (recurrence['intervalDays'] as num?)?.toInt(),
       dayOfWeek: (recurrence['dayOfWeek'] as num?)?.toInt(),
       anchorDate: anchor,
       rotationOrder: (d['rotationOrder'] as List?)?.cast<String>() ?? [],
+      assigneeUids: (d['assigneeUids'] as List?)?.cast<String>() ?? const [],
       active: d['active'] as bool? ?? true,
       lastCompletionDay: d['lastCompletionDay'] as String?,
     );
@@ -131,7 +191,7 @@ class TaskCompletion {
   final String id;
   final String taskId;
   final String taskTitle;
-  final String? assigneeUid;
+  final List<String> assigneeUids;
   final String status; // done | missed
   final DateTime? occurrenceDate; // qué día tocaba, no cuándo se pulsó el botón
   final DateTime? completedAt; // cuándo se pulsó "Hecho" -- null si fue "missed"
@@ -141,7 +201,7 @@ class TaskCompletion {
     required this.id,
     required this.taskId,
     required this.taskTitle,
-    this.assigneeUid,
+    this.assigneeUids = const [],
     required this.status,
     this.occurrenceDate,
     this.completedAt,
@@ -150,11 +210,15 @@ class TaskCompletion {
 
   factory TaskCompletion.fromDoc(DocumentSnapshot<Map<String, dynamic>> doc) {
     final d = doc.data() ?? {};
+    // Compatibilidad con historial viejo, que guardaba un solo
+    // "assigneeUid" en vez de la lista.
+    final lista = (d['assigneeUids'] as List?)?.cast<String>();
+    final antiguo = d['assigneeUid'] as String?;
     return TaskCompletion(
       id: doc.id,
       taskId: d['taskId'] as String? ?? '',
       taskTitle: d['taskTitle'] as String? ?? '',
-      assigneeUid: d['assigneeUid'] as String?,
+      assigneeUids: lista ?? (antiguo != null ? [antiguo] : const []),
       status: d['status'] as String? ?? 'done',
       occurrenceDate: (d['occurrenceDate'] as Timestamp?)?.toDate(),
       completedAt: (d['completedAt'] as Timestamp?)?.toDate(),

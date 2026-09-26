@@ -512,6 +512,72 @@ abstract class AppLocalizations {
   /// **'Cada X días'**
   String get recurrenceEveryNDays;
 
+  /// No description provided for @taskCategoryKitchen.
+  ///
+  /// In es, this message translates to:
+  /// **'Cocina'**
+  String get taskCategoryKitchen;
+
+  /// No description provided for @taskCategoryBathroom.
+  ///
+  /// In es, this message translates to:
+  /// **'Baño'**
+  String get taskCategoryBathroom;
+
+  /// No description provided for @taskCategoryLivingRoom.
+  ///
+  /// In es, this message translates to:
+  /// **'Salón'**
+  String get taskCategoryLivingRoom;
+
+  /// No description provided for @taskCategoryBedroom.
+  ///
+  /// In es, this message translates to:
+  /// **'Dormitorio'**
+  String get taskCategoryBedroom;
+
+  /// No description provided for @taskCategoryOther.
+  ///
+  /// In es, this message translates to:
+  /// **'Otros'**
+  String get taskCategoryOther;
+
+  /// No description provided for @tasksAssignModeRotate.
+  ///
+  /// In es, this message translates to:
+  /// **'Rotar entre todos'**
+  String get tasksAssignModeRotate;
+
+  /// No description provided for @tasksAssignModeFixed.
+  ///
+  /// In es, this message translates to:
+  /// **'Fijar en concreto'**
+  String get tasksAssignModeFixed;
+
+  /// No description provided for @tasksAssignModeFixedHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Elige quién (una persona o varias, sin rotar)'**
+  String get tasksAssignModeFixedHint;
+
+  /// No description provided for @tasksMarkDoneOtherDay.
+  ///
+  /// In es, this message translates to:
+  /// **'Marcar como hecha'**
+  String get tasksMarkDoneOtherDay;
+
+  /// No description provided for @tasksAlreadyDone.
+  ///
+  /// In es, this message translates to:
+  /// **'Ya estaba hecha'**
+  String get tasksAlreadyDone;
+
+  /// No description provided for @namesJoinerLast.
+  ///
+  /// In es, this message translates to:
+  /// **' y '**
+  String get namesJoinerLast;
+
   /// No description provided for @chatEmpty.
   ///
   /// In es, this message translates to:

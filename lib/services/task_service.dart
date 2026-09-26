@@ -37,15 +37,19 @@ class TaskService {
 
   /// Crea una tarea recurrente anclada a [anchorDate] -- normalmente el día
   /// que el usuario tenía seleccionado en el calendario. La rotación
-  /// empieza por el primer miembro de [rotationOrder].
+  /// empieza por el primer miembro de [rotationOrder]. Si [assigneeUids] no
+  /// está vacío, la tarea NO rota -- son siempre esas personas (fija con
+  /// una, compartida con varias).
   static Future<void> createTask({
     required String householdId,
     required String title,
+    TaskCategory category = TaskCategory.other,
     required RecurrenceType recurrenceType,
     required DateTime anchorDate,
     int? intervalDays,
     int? dayOfWeek,
     required List<String> rotationOrder,
+    List<String> assigneeUids = const [],
   }) async {
     if (rotationOrder.isEmpty) {
       throw ArgumentError('Un piso sin miembros no puede tener tareas.');
@@ -56,6 +60,7 @@ class TaskService {
         .collection('tasks')
         .add({
       'title': title,
+      'category': category.wireValue,
       'recurrence': {
         'type': recurrenceType.wireValue,
         'intervalDays': ?intervalDays,
@@ -63,20 +68,26 @@ class TaskService {
       },
       'anchorDate': Timestamp.fromDate(anchorDate),
       'rotationOrder': rotationOrder,
+      'assigneeUids': assigneeUids,
       'active': true,
       'createdAt': FieldValue.serverTimestamp(),
     });
   }
 
+  /// [occurrenceDate] es opcional -- si no se manda, es "hoy". Se puede
+  /// mandar un día pasado (hasta una semana atrás) para corregir "se me
+  /// olvidó marcarla ese día", sin dejarla como fallada para siempre.
   static Future<void> completeTask({
     required String householdId,
     required String taskId,
+    DateTime? occurrenceDate,
   }) async {
     final callable = FirebaseFunctions.instanceFor(region: _region)
         .httpsCallable('completeTask');
     await callable.call<Map<String, dynamic>>({
       'householdId': householdId,
       'taskId': taskId,
+      'occurrenceDateMs': ?occurrenceDate?.millisecondsSinceEpoch,
     });
   }
 
