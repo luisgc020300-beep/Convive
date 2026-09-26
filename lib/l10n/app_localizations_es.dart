@@ -33,6 +33,9 @@ class AppLocalizationsEs extends AppLocalizations {
   String get leave => 'Salir';
 
   @override
+  String get errorGeneric => 'Algo no ha ido bien. Inténtalo de nuevo.';
+
+  @override
   String get loginSubtitle => 'Convivencia de piso sin dramas';
 
   @override

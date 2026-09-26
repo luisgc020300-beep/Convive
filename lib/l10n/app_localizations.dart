@@ -146,6 +146,12 @@ abstract class AppLocalizations {
   /// **'Salir'**
   String get leave;
 
+  /// No description provided for @errorGeneric.
+  ///
+  /// In es, this message translates to:
+  /// **'Algo no ha ido bien. Inténtalo de nuevo.'**
+  String get errorGeneric;
+
   /// No description provided for @loginSubtitle.
   ///
   /// In es, this message translates to:

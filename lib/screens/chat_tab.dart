@@ -7,6 +7,7 @@ import '../models/chat_message.dart';
 import '../models/household.dart';
 import '../services/chat_service.dart';
 import '../theme/design_tokens.dart';
+import '../widgets/app_error.dart';
 
 class ChatTab extends StatefulWidget {
   const ChatTab({required this.household, super.key});
@@ -29,8 +30,15 @@ class _ChatTabState extends State<ChatTab> {
   Future<void> _enviar() async {
     final text = _textCtrl.text.trim();
     if (text.isEmpty) return;
-    _textCtrl.clear();
-    await ChatService.sendMessage(widget.household.id, text);
+    // No se limpia el campo hasta que el envío se confirma -- si falla (red
+    // caída, permisos), el mensaje escrito no se pierde y el usuario puede
+    // reintentar sin volver a teclearlo.
+    try {
+      await ChatService.sendMessage(widget.household.id, text);
+      if (mounted) _textCtrl.clear();
+    } catch (e) {
+      if (mounted) AppError.show(context, context.l10n.errorGeneric);
+    }
   }
 
   @override

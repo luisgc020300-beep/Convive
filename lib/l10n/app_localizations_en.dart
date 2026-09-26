@@ -33,6 +33,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get leave => 'Leave';
 
   @override
+  String get errorGeneric => 'Something went wrong. Try again.';
+
+  @override
   String get loginSubtitle => 'Flat life without the drama';
 
   @override

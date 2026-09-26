@@ -14,6 +14,7 @@ import '../models/reminder.dart';
 import '../services/expense_service.dart';
 import '../services/reminder_service.dart';
 import '../theme/design_tokens.dart';
+import '../widgets/app_error.dart';
 import '../widgets/convive_sheet.dart';
 import '../widgets/dashed_divider.dart';
 import 'expenses_summary_screen.dart';
@@ -165,15 +166,19 @@ class PaymentsTab extends StatelessWidget {
                   return;
                 }
                 final splits = splitEqually(amount, incluidos.toList());
-                await ExpenseService.addExpense(
-                  householdId: household.id,
-                  description: descCtrl.text.trim(),
-                  amount: amount,
-                  paidByUid: paidByUid,
-                  splits: splits,
-                  category: categoria,
-                );
-                if (ctx.mounted) Navigator.pop(ctx);
+                try {
+                  await ExpenseService.addExpense(
+                    householdId: household.id,
+                    description: descCtrl.text.trim(),
+                    amount: amount,
+                    paidByUid: paidByUid,
+                    splits: splits,
+                    category: categoria,
+                  );
+                  if (ctx.mounted) Navigator.pop(ctx);
+                } catch (e) {
+                  if (ctx.mounted) AppError.show(ctx, l10n.errorGeneric);
+                }
               },
               child: Text(l10n.add),
             ),
@@ -239,14 +244,18 @@ class PaymentsTab extends StatelessWidget {
             style: FilledButton.styleFrom(backgroundColor: context.colors.mint, foregroundColor: const Color(0xFF0B2116)),
             onPressed: () async {
               if (titleCtrl.text.trim().isEmpty) return;
-              await ReminderService.addReminder(
-                householdId: household.id,
-                title: titleCtrl.text.trim(),
-                recurring: recurrente,
-                dueDate: recurrente ? null : dueDate,
-                dueDay: recurrente ? dueDay : null,
-              );
-              if (ctx.mounted) Navigator.pop(ctx);
+              try {
+                await ReminderService.addReminder(
+                  householdId: household.id,
+                  title: titleCtrl.text.trim(),
+                  recurring: recurrente,
+                  dueDate: recurrente ? null : dueDate,
+                  dueDay: recurrente ? dueDay : null,
+                );
+                if (ctx.mounted) Navigator.pop(ctx);
+              } catch (e) {
+                if (ctx.mounted) AppError.show(ctx, l10n.errorGeneric);
+              }
             },
             child: Text(l10n.add),
           ),
@@ -356,7 +365,13 @@ class _ExpensesSection extends StatelessWidget {
                           if (expenses[i].paidByUid == myUid)
                             IconButton(
                               icon: Icon(Icons.close, size: 16, color: context.colors.paperMuted),
-                              onPressed: () => ExpenseService.deleteExpense(household.id, expenses[i].id),
+                              onPressed: () async {
+                                try {
+                                  await ExpenseService.deleteExpense(household.id, expenses[i].id);
+                                } catch (e) {
+                                  if (context.mounted) AppError.show(context, l10n.errorGeneric);
+                                }
+                              },
                             )
                           else
                             const SizedBox(width: 12),
@@ -470,7 +485,13 @@ class _RemindersSection extends StatelessWidget {
                       if (reminders[i].createdBy == myUid)
                         IconButton(
                           icon: Icon(Icons.close, size: 16, color: context.colors.paperMuted),
-                          onPressed: () => ReminderService.deleteReminder(household.id, reminders[i].id),
+                          onPressed: () async {
+                            try {
+                              await ReminderService.deleteReminder(household.id, reminders[i].id);
+                            } catch (e) {
+                              if (context.mounted) AppError.show(context, l10n.errorGeneric);
+                            }
+                          },
                         ),
                     ],
                   ),

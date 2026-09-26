@@ -10,6 +10,7 @@ import '../models/task.dart';
 import '../services/note_service.dart';
 import '../services/task_service.dart';
 import '../theme/design_tokens.dart';
+import '../widgets/app_error.dart';
 import '../widgets/convive_sheet.dart';
 import '../widgets/corkboard.dart';
 import 'weekly_calendar.dart';
@@ -122,18 +123,22 @@ class TasksTab extends StatelessWidget {
             onPressed: () async {
               final titulo = tituloCtrl.text.trim();
               if (titulo.isEmpty) return;
-              await TaskService.createTask(
-                householdId: household.id,
-                title: titulo,
-                recurrenceType: tipo,
-                anchorDate: anchorDate,
-                dayOfWeek: tipo == RecurrenceType.weekly ? diaSemana : null,
-                intervalDays: tipo == RecurrenceType.everyNDays
-                    ? int.tryParse(intervalCtrl.text)
-                    : null,
-                rotationOrder: household.members,
-              );
-              if (ctx.mounted) Navigator.pop(ctx);
+              try {
+                await TaskService.createTask(
+                  householdId: household.id,
+                  title: titulo,
+                  recurrenceType: tipo,
+                  anchorDate: anchorDate,
+                  dayOfWeek: tipo == RecurrenceType.weekly ? diaSemana : null,
+                  intervalDays: tipo == RecurrenceType.everyNDays
+                      ? int.tryParse(intervalCtrl.text)
+                      : null,
+                  rotationOrder: household.members,
+                );
+                if (ctx.mounted) Navigator.pop(ctx);
+              } catch (e) {
+                if (ctx.mounted) AppError.show(ctx, l10n.errorGeneric);
+              }
             },
             child: Text(l10n.create),
           ),
@@ -189,10 +194,16 @@ class _TaskCard extends StatelessWidget {
             ),
             onPressed: task.completadaHoy
                 ? null
-                : () => TaskService.completeTask(
-                      householdId: household.id,
-                      taskId: task.id,
-                    ),
+                : () async {
+                    try {
+                      await TaskService.completeTask(
+                        householdId: household.id,
+                        taskId: task.id,
+                      );
+                    } catch (e) {
+                      if (context.mounted) AppError.show(context, context.l10n.errorGeneric);
+                    }
+                  },
             child: Text(task.completadaHoy ? l10n.tasksDoneToday : (esMiTurno ? l10n.tasksDone : l10n.tasksMarkDone)),
           ),
           IconButton(
@@ -222,7 +233,11 @@ class _TaskCard extends StatelessWidget {
       ),
     );
     if (confirmado == true) {
-      await TaskService.deleteTask(householdId: household.id, taskId: task.id);
+      try {
+        await TaskService.deleteTask(householdId: household.id, taskId: task.id);
+      } catch (e) {
+        if (context.mounted) AppError.show(context, l10n.errorGeneric);
+      }
     }
   }
 }
@@ -277,7 +292,13 @@ class _NotesBoard extends StatelessWidget {
                       color: ConviveColors.postIts[entry.key % ConviveColors.postIts.length],
                       seed: n.id.hashCode,
                       onDelete: n.authorUid == myUid
-                          ? () => NoteService.deleteNote(household.id, n.id)
+                          ? () async {
+                              try {
+                                await NoteService.deleteNote(household.id, n.id);
+                              } catch (e) {
+                                if (context.mounted) AppError.show(context, context.l10n.errorGeneric);
+                              }
+                            }
                           : null,
                     );
                   }).toList(),
@@ -311,8 +332,12 @@ class _NotesBoard extends StatelessWidget {
             onPressed: () async {
               final text = ctrl.text.trim();
               if (text.isEmpty) return;
-              await NoteService.postNote(household.id, text);
-              if (ctx.mounted) Navigator.pop(ctx);
+              try {
+                await NoteService.postNote(household.id, text);
+                if (ctx.mounted) Navigator.pop(ctx);
+              } catch (e) {
+                if (ctx.mounted) AppError.show(ctx, l10n.errorGeneric);
+              }
             },
             child: Text(l10n.tasksPin),
           ),

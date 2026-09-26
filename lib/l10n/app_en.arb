@@ -9,6 +9,7 @@
   "delete": "Delete",
   "continueLabel": "Continue",
   "leave": "Leave",
+  "errorGeneric": "Something went wrong. Try again.",
 
   "loginSubtitle": "Flat life without the drama",
   "loginEmail": "Email",

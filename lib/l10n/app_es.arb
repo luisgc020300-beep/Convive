@@ -9,6 +9,7 @@
   "delete": "Borrar",
   "continueLabel": "Continuar",
   "leave": "Salir",
+  "errorGeneric": "Algo no ha ido bien. Inténtalo de nuevo.",
 
   "loginSubtitle": "Convivencia de piso sin dramas",
   "loginEmail": "Email",
