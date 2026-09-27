@@ -5,6 +5,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart' show Timestamp;
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../l10n/l10n.dart';
 import '../models/chat_message.dart';
@@ -83,17 +84,41 @@ class _HouseholdShellState extends State<_HouseholdShell> {
   // Guardando aquí el momento exacto en que se marcó como visto (antes
   // incluso de que la escritura salga), y usando el más reciente entre
   // este valor y el de Firestore, el contador nunca retrocede aunque la
-  // confirmación tarde.
+  // confirmación tarde. Persistido en disco (no solo en memoria) porque
+  // Android puede matar el proceso en segundo plano en cualquier momento
+  // -- si solo viviera en memoria, un simple cambio de app y vuelta podía
+  // borrar el respaldo justo antes de que Firestore confirmara la escritura.
   final _chatSeenLocal = <String, DateTime>{};
   final _notesSeenLocal = <String, DateTime>{};
 
+  String _clavePrefsChat(String householdId) => 'lastSeenChatLocal_$householdId';
+  String _clavePrefsNotas(String householdId) => 'lastSeenNotesLocal_$householdId';
+
+  Future<void> _cargarRespaldoLocal(String householdId) async {
+    final prefs = await SharedPreferences.getInstance();
+    final chatMs = prefs.getInt(_clavePrefsChat(householdId));
+    final notasMs = prefs.getInt(_clavePrefsNotas(householdId));
+    if (chatMs == null && notasMs == null) return;
+    if (!mounted) return;
+    setState(() {
+      if (chatMs != null) _chatSeenLocal[householdId] = DateTime.fromMillisecondsSinceEpoch(chatMs);
+      if (notasMs != null) _notesSeenLocal[householdId] = DateTime.fromMillisecondsSinceEpoch(notasMs);
+    });
+  }
+
   void _marcarChatVisto(String householdId) {
-    _chatSeenLocal[householdId] = DateTime.now();
+    final ahora = DateTime.now();
+    _chatSeenLocal[householdId] = ahora;
+    SharedPreferences.getInstance()
+        .then((p) => p.setInt(_clavePrefsChat(householdId), ahora.millisecondsSinceEpoch));
     HouseholdService.markChatSeen(householdId);
   }
 
   void _marcarNotasVistas(String householdId) {
-    _notesSeenLocal[householdId] = DateTime.now();
+    final ahora = DateTime.now();
+    _notesSeenLocal[householdId] = ahora;
+    SharedPreferences.getInstance()
+        .then((p) => p.setInt(_clavePrefsNotas(householdId), ahora.millisecondsSinceEpoch));
     HouseholdService.markNotesSeen(householdId);
   }
 
@@ -108,6 +133,7 @@ class _HouseholdShellState extends State<_HouseholdShell> {
     super.initState();
     _lastSeenStream = HouseholdService.streamLastSeen();
     _iniciarStreamsDelPiso();
+    _cargarRespaldoLocal(widget.household.id);
     // La pestaña por defecto es Tareas -- "entrar" en ella ya cuenta como
     // haber visto las notas, igual que tocarla a mano.
     _marcarNotasVistas(widget.household.id);
@@ -123,6 +149,7 @@ class _HouseholdShellState extends State<_HouseholdShell> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.household.id != widget.household.id) {
       _iniciarStreamsDelPiso();
+      _cargarRespaldoLocal(widget.household.id);
       // Cambiaste de piso -- "entrar" en él marca como vista la pestaña que
       // ya tuvieras seleccionada, en ese piso nuevo.
       if (_index == 0) _marcarNotasVistas(widget.household.id);
