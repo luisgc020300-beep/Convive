@@ -9,9 +9,11 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../l10n/l10n.dart';
 import '../models/chat_message.dart';
+import '../models/expense.dart';
 import '../models/household.dart';
 import '../models/note.dart';
 import '../services/chat_service.dart';
+import '../services/expense_service.dart';
 import '../services/household_service.dart';
 import '../services/note_service.dart';
 import '../theme/design_tokens.dart';
@@ -102,6 +104,7 @@ class _HouseholdShellState extends State<_HouseholdShell> {
   late Stream<Map<String, dynamic>> _lastSeenStream;
   late Stream<List<ChatMessage>> _chatStream;
   late Stream<List<ConviveNote>> _notesStream;
+  late Stream<List<Expense>> _expensesStream;
 
   // Respaldo optimista local -- streamLastSeen() puede tardar en reflejar
   // un markChatSeen/markNotesSeen reciente bajo mala cobertura (el
@@ -119,19 +122,23 @@ class _HouseholdShellState extends State<_HouseholdShell> {
   // borrar el respaldo justo antes de que Firestore confirmara la escritura.
   final _chatSeenLocal = <String, DateTime>{};
   final _notesSeenLocal = <String, DateTime>{};
+  final _expensesSeenLocal = <String, DateTime>{};
 
   String _clavePrefsChat(String householdId) => 'lastSeenChatLocal_$householdId';
   String _clavePrefsNotas(String householdId) => 'lastSeenNotesLocal_$householdId';
+  String _clavePrefsPagos(String householdId) => 'lastSeenExpensesLocal_$householdId';
 
   Future<void> _cargarRespaldoLocal(String householdId) async {
     final prefs = await SharedPreferences.getInstance();
     final chatMs = prefs.getInt(_clavePrefsChat(householdId));
     final notasMs = prefs.getInt(_clavePrefsNotas(householdId));
-    if (chatMs == null && notasMs == null) return;
+    final pagosMs = prefs.getInt(_clavePrefsPagos(householdId));
+    if (chatMs == null && notasMs == null && pagosMs == null) return;
     if (!mounted) return;
     setState(() {
       if (chatMs != null) _chatSeenLocal[householdId] = DateTime.fromMillisecondsSinceEpoch(chatMs);
       if (notasMs != null) _notesSeenLocal[householdId] = DateTime.fromMillisecondsSinceEpoch(notasMs);
+      if (pagosMs != null) _expensesSeenLocal[householdId] = DateTime.fromMillisecondsSinceEpoch(pagosMs);
     });
   }
 
@@ -149,6 +156,14 @@ class _HouseholdShellState extends State<_HouseholdShell> {
     SharedPreferences.getInstance()
         .then((p) => p.setInt(_clavePrefsNotas(householdId), ahora.millisecondsSinceEpoch));
     HouseholdService.markNotesSeen(householdId);
+  }
+
+  void _marcarPagosVistos(String householdId) {
+    final ahora = DateTime.now();
+    _expensesSeenLocal[householdId] = ahora;
+    SharedPreferences.getInstance()
+        .then((p) => p.setInt(_clavePrefsPagos(householdId), ahora.millisecondsSinceEpoch));
+    HouseholdService.markExpensesSeen(householdId);
   }
 
   DateTime? _masReciente(DateTime? a, DateTime? b) {
@@ -171,6 +186,7 @@ class _HouseholdShellState extends State<_HouseholdShell> {
   void _iniciarStreamsDelPiso() {
     _chatStream = ChatService.streamMessages(widget.household.id);
     _notesStream = NoteService.streamNotes(widget.household.id);
+    _expensesStream = ExpenseService.streamExpenses(widget.household.id);
   }
 
   @override
@@ -183,6 +199,7 @@ class _HouseholdShellState extends State<_HouseholdShell> {
       // ya tuvieras seleccionada, en ese piso nuevo.
       if (_index == 0) _marcarNotasVistas(widget.household.id);
       if (_index == 1) _marcarChatVisto(widget.household.id);
+      if (_index == 2) _marcarPagosVistos(widget.household.id);
     }
   }
 
@@ -190,6 +207,7 @@ class _HouseholdShellState extends State<_HouseholdShell> {
     setState(() => _index = i);
     if (i == 0) _marcarNotasVistas(widget.household.id);
     if (i == 1) _marcarChatVisto(widget.household.id);
+    if (i == 2) _marcarPagosVistos(widget.household.id);
   }
 
   @override
@@ -207,6 +225,7 @@ class _HouseholdShellState extends State<_HouseholdShell> {
       builder: (context, lastSeenSnapshot) {
         final lastSeenChat = lastSeenSnapshot.data?['chat'] as Map<String, dynamic>? ?? const {};
         final lastSeenNotes = lastSeenSnapshot.data?['notes'] as Map<String, dynamic>? ?? const {};
+        final lastSeenExpenses = lastSeenSnapshot.data?['expenses'] as Map<String, dynamic>? ?? const {};
         final desdeChat = _masReciente(
           (lastSeenChat[household.id] as Timestamp?)?.toDate(),
           _chatSeenLocal[household.id],
@@ -214,6 +233,10 @@ class _HouseholdShellState extends State<_HouseholdShell> {
         final desdeNotas = _masReciente(
           (lastSeenNotes[household.id] as Timestamp?)?.toDate(),
           _notesSeenLocal[household.id],
+        );
+        final desdePagos = _masReciente(
+          (lastSeenExpenses[household.id] as Timestamp?)?.toDate(),
+          _expensesSeenLocal[household.id],
         );
 
         return StreamBuilder<List<ChatMessage>>(
@@ -247,7 +270,40 @@ class _HouseholdShellState extends State<_HouseholdShell> {
                       .addPostFrameCallback((_) => _marcarNotasVistas(household.id));
                 }
 
-                return Scaffold(
+                return StreamBuilder<List<Expense>>(
+                  stream: _expensesStream,
+                  builder: (context, expensesSnapshot) {
+                    var sinLeerPagos = (expensesSnapshot.data ?? [])
+                        .where((e) => e.paidByUid != myUid)
+                        .where((e) => desdePagos == null || (e.createdAt?.isAfter(desdePagos) ?? false))
+                        .length;
+                    if (_index == 2 && sinLeerPagos > 0) {
+                      sinLeerPagos = 0;
+                      WidgetsBinding.instance
+                          .addPostFrameCallback((_) => _marcarPagosVistos(household.id));
+                    }
+
+                    return _buildScaffold(context, household, l10n, tabs, sinLeerNotas, sinLeerChat, sinLeerPagos);
+                  },
+                );
+              },
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildScaffold(
+    BuildContext context,
+    Household household,
+    AppLocalizations l10n,
+    List<Widget> tabs,
+    int sinLeerNotas,
+    int sinLeerChat,
+    int sinLeerPagos,
+  ) {
+    return Scaffold(
                   appBar: AppBar(
                     toolbarHeight: 44,
                     title: Text(_nombresPestanas(l10n)[_index]),
@@ -295,16 +351,17 @@ class _HouseholdShellState extends State<_HouseholdShell> {
                         ),
                         label: l10n.tabChat,
                       ),
-                      NavigationDestination(icon: const Icon(Icons.payments_outlined), label: l10n.tabPayments),
+                      NavigationDestination(
+                        icon: Badge(
+                          label: Text('$sinLeerPagos'),
+                          isLabelVisible: sinLeerPagos > 0,
+                          child: const Icon(Icons.payments_outlined),
+                        ),
+                        label: l10n.tabPayments,
+                      ),
                       NavigationDestination(icon: const Icon(Icons.home_outlined), label: l10n.tabHousehold),
                     ],
                   ),
-                );
-              },
-            );
-          },
-        );
-      },
     );
   }
 }

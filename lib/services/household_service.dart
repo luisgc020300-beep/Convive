@@ -55,6 +55,7 @@ class HouseholdService {
     return _db.collection('users').doc(uid).snapshots().map((doc) => {
           'chat': (doc.data()?['lastSeenChat'] as Map<String, dynamic>?) ?? {},
           'notes': (doc.data()?['lastSeenNotes'] as Map<String, dynamic>?) ?? {},
+          'expenses': (doc.data()?['lastSeenExpenses'] as Map<String, dynamic>?) ?? {},
         });
   }
 
@@ -73,6 +74,14 @@ class HouseholdService {
     if (uid == null) return;
     await _db.collection('users').doc(uid).set({
       'lastSeenNotes.$householdId': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+  }
+
+  static Future<void> markExpensesSeen(String householdId) async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+    await _db.collection('users').doc(uid).set({
+      'lastSeenExpenses.$householdId': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
   }
 
