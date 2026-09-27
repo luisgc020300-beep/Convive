@@ -98,6 +98,36 @@ class _WeeklyCalendarState extends State<WeeklyCalendar> {
   // sentirse como un error real de cara al usuario.
   final _marcandoHecha = <String>{};
 
+  // Streams estables -- si se llaman dentro de build() (como antes), cada
+  // rebuild de este widget (pasa a menudo: el padre reconstruye Tareas en
+  // cada evento de los streams de badges) les da a los StreamBuilder
+  // anidados una instancia de Stream nueva, y se desuscriben/resuscriben
+  // sin necesidad. Mismo patrón de bug ya encontrado y arreglado en
+  // household_home_screen.dart y chat_tab.dart -- aquí no llegó a causar un
+  // bug visible (los datos igual acababan llegando bien), pero sí
+  // reconexiones de más constantemente.
+  late Stream<List<TaskCompletion>> _historyStream;
+  late Stream<List<PaymentReminder>> _remindersStream;
+
+  @override
+  void initState() {
+    super.initState();
+    _iniciarStreams();
+  }
+
+  void _iniciarStreams() {
+    _historyStream = TaskService.streamHistory(widget.household.id, limit: 300);
+    _remindersStream = ReminderService.streamReminders(widget.household.id);
+  }
+
+  @override
+  void didUpdateWidget(covariant WeeklyCalendar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.household.id != widget.household.id) {
+      _iniciarStreams();
+    }
+  }
+
   static DateTime _todayMidnight() {
     final n = DateTime.now();
     return DateTime(n.year, n.month, n.day);
@@ -168,11 +198,11 @@ class _WeeklyCalendarState extends State<WeeklyCalendar> {
       child: Padding(
         padding: const EdgeInsets.all(12),
         child: StreamBuilder<List<TaskCompletion>>(
-          stream: TaskService.streamHistory(widget.household.id, limit: 300),
+          stream: _historyStream,
           builder: (context, completionsSnapshot) {
             final completions = completionsSnapshot.data ?? [];
             return StreamBuilder<List<PaymentReminder>>(
-              stream: ReminderService.streamReminders(widget.household.id),
+              stream: _remindersStream,
               builder: (context, remindersSnapshot) {
                 final reminders = remindersSnapshot.data ?? [];
                 return Column(

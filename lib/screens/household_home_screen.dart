@@ -25,15 +25,42 @@ import 'payments_tab.dart';
 import 'settings_screen.dart';
 import 'tasks_tab.dart';
 
-class HouseholdHomeScreen extends StatelessWidget {
+class HouseholdHomeScreen extends StatefulWidget {
   const HouseholdHomeScreen({required this.householdId, super.key});
 
   final String householdId;
 
   @override
+  State<HouseholdHomeScreen> createState() => _HouseholdHomeScreenState();
+}
+
+class _HouseholdHomeScreenState extends State<HouseholdHomeScreen> {
+  // Stream estable -- la raíz de todo el árbol del piso; sin esto, CADA
+  // escritura en users/{uid} (markChatSeen, markNotesSeen, incluso el
+  // respaldo optimista) hace que streamActiveHouseholdId() emita y
+  // reconstruya HouseholdGateScreen -> este widget -- y sin un stream
+  // estable aquí, el StreamBuilder de abajo se desuscribiría/resuscribiría
+  // en cascada con cada uno de esos eventos.
+  late Stream<Household> _householdStream;
+
+  @override
+  void initState() {
+    super.initState();
+    _householdStream = HouseholdService.streamHousehold(widget.householdId);
+  }
+
+  @override
+  void didUpdateWidget(covariant HouseholdHomeScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.householdId != widget.householdId) {
+      _householdStream = HouseholdService.streamHousehold(widget.householdId);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     return StreamBuilder<Household>(
-      stream: HouseholdService.streamHousehold(householdId),
+      stream: _householdStream,
       builder: (context, snapshot) {
         if (!snapshot.hasData) {
           return const Scaffold(body: Center(child: CircularProgressIndicator()));
@@ -397,12 +424,33 @@ class _PisoTabState extends State<_PisoTab> {
   }
 }
 
-class _InfoPiso extends StatelessWidget {
+class _InfoPiso extends StatefulWidget {
   const _InfoPiso({required this.household});
 
   final Household household;
 
-  Future<void> _editar(BuildContext context, String actual) async {
+  @override
+  State<_InfoPiso> createState() => _InfoPisoState();
+}
+
+class _InfoPisoState extends State<_InfoPiso> {
+  late Stream<String> _infoStream;
+
+  @override
+  void initState() {
+    super.initState();
+    _infoStream = HouseholdService.streamInfoPiso(widget.household.id);
+  }
+
+  @override
+  void didUpdateWidget(covariant _InfoPiso oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.household.id != widget.household.id) {
+      _infoStream = HouseholdService.streamInfoPiso(widget.household.id);
+    }
+  }
+
+  Future<void> _editar(BuildContext context, Household household, String actual) async {
     final ctrl = TextEditingController(text: actual);
     final l10n = context.l10n;
     await showConviveSheet<void>(
@@ -438,10 +486,11 @@ class _InfoPiso extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final household = widget.household;
     final colors = context.colors;
     final l10n = context.l10n;
     return StreamBuilder<String>(
-      stream: HouseholdService.streamInfoPiso(household.id),
+      stream: _infoStream,
       builder: (context, snapshot) {
         final texto = snapshot.data ?? '';
         return Container(
@@ -461,7 +510,7 @@ class _InfoPiso extends StatelessWidget {
                   ),
                   IconButton(
                     icon: Icon(Icons.edit_outlined, size: 18, color: colors.paperMuted),
-                    onPressed: () => _editar(context, texto),
+                    onPressed: () => _editar(context, household, texto),
                     tooltip: l10n.householdInfoEdit,
                   ),
                 ],
@@ -483,24 +532,37 @@ class _InfoPiso extends StatelessWidget {
   }
 }
 
-class _MisPisos extends StatelessWidget {
+class _MisPisos extends StatefulWidget {
   const _MisPisos({required this.activeHouseholdId});
 
   final String activeHouseholdId;
+
+  @override
+  State<_MisPisos> createState() => _MisPisosState();
+}
+
+class _MisPisosState extends State<_MisPisos> {
+  // No depende de ningún campo que cambie (siempre el mismo usuario), pero
+  // se estabiliza igual por consistencia con el resto de streams del piso.
+  late final _idsStream = HouseholdService.streamMyHouseholdIds();
 
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
     final l10n = context.l10n;
     return StreamBuilder<List<String>>(
-      stream: HouseholdService.streamMyHouseholdIds(),
+      stream: _idsStream,
       builder: (context, snapshot) {
-        final ids = snapshot.data ?? [activeHouseholdId];
+        final ids = snapshot.data ?? [widget.activeHouseholdId];
         return Container(
           decoration: BoxDecoration(color: colors.cork, borderRadius: BorderRadius.circular(14)),
           child: Column(
             children: [
-              ...ids.map((id) => _PisoRow(householdId: id, esActivo: id == activeHouseholdId)),
+              ...ids.map((id) => _PisoRow(
+                    key: ValueKey(id),
+                    householdId: id,
+                    esActivo: id == widget.activeHouseholdId,
+                  )),
               const Divider(height: 1),
               ListTile(
                 leading: Icon(Icons.add, color: colors.amber),
@@ -547,18 +609,32 @@ class _MisPisos extends StatelessWidget {
   }
 }
 
-class _PisoRow extends StatelessWidget {
-  const _PisoRow({required this.householdId, required this.esActivo});
+class _PisoRow extends StatefulWidget {
+  const _PisoRow({required this.householdId, required this.esActivo, super.key});
 
   final String householdId;
   final bool esActivo;
 
   @override
+  State<_PisoRow> createState() => _PisoRowState();
+}
+
+class _PisoRowState extends State<_PisoRow> {
+  // Seguro cachear una sola vez: cada _PisoRow lleva key: ValueKey(id) en
+  // _MisPisos, así que Flutter siempre empareja esta instancia con el
+  // MISMO householdId aunque la lista se reordene -- no es el caso que
+  // causó el bug de chat_tab.dart, donde el widget SÍ cambiaba de piso
+  // bajo la misma instancia.
+  late final _householdStream = HouseholdService.streamHousehold(widget.householdId);
+
+  @override
   Widget build(BuildContext context) {
+    final householdId = widget.householdId;
+    final esActivo = widget.esActivo;
     final colors = context.colors;
     final l10n = context.l10n;
     return StreamBuilder<Household>(
-      stream: HouseholdService.streamHousehold(householdId),
+      stream: _householdStream,
       builder: (context, snapshot) {
         if (!snapshot.hasData) return const SizedBox.shrink();
         final household = snapshot.data!;

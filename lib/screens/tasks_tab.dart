@@ -19,19 +19,44 @@ import '../widgets/corkboard.dart';
 import 'payments_tab.dart' show mostrarNuevoGasto;
 import 'weekly_calendar.dart';
 
-class TasksTab extends StatelessWidget {
+class TasksTab extends StatefulWidget {
   const TasksTab({required this.household, super.key});
 
   final Household household;
 
   @override
+  State<TasksTab> createState() => _TasksTabState();
+}
+
+class _TasksTabState extends State<TasksTab> {
+  // Stream estable -- esta pestaña se reconstruye a menudo por los streams
+  // de badges del piso (ver household_home_screen.dart); sin esto, el
+  // StreamBuilder de abajo se desuscribía y resuscribía en cada rebuild.
+  late Stream<List<ConviveTask>> _tasksStream;
+
+  @override
+  void initState() {
+    super.initState();
+    _tasksStream = TaskService.streamTasks(widget.household.id);
+  }
+
+  @override
+  void didUpdateWidget(covariant TasksTab oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.household.id != widget.household.id) {
+      _tasksStream = TaskService.streamTasks(widget.household.id);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final household = widget.household;
     final l10n = context.l10n;
     return Column(
       children: [
         Expanded(
           child: StreamBuilder<List<ConviveTask>>(
-            stream: TaskService.streamTasks(household.id),
+            stream: _tasksStream,
             builder: (context, snapshot) {
               if (!snapshot.hasData) {
                 return const Center(child: CircularProgressIndicator());
@@ -330,6 +355,21 @@ class _ShoppingListState extends State<_ShoppingList> {
   // añadido y el siguiente a propósito: si vas apuntando varias cosas
   // tuyas seguidas, no hace falta reelegir cada vez.
   late String? _paraUidSeleccionado = FirebaseAuth.instance.currentUser?.uid;
+  late Stream<List<ShoppingItem>> _itemsStream;
+
+  @override
+  void initState() {
+    super.initState();
+    _itemsStream = ShoppingService.streamItems(widget.household.id);
+  }
+
+  @override
+  void didUpdateWidget(covariant _ShoppingList oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.household.id != widget.household.id) {
+      _itemsStream = ShoppingService.streamItems(widget.household.id);
+    }
+  }
 
   @override
   void dispose() {
@@ -455,7 +495,7 @@ class _ShoppingListState extends State<_ShoppingList> {
             ),
           ),
           StreamBuilder<List<ShoppingItem>>(
-            stream: ShoppingService.streamItems(widget.household.id),
+            stream: _itemsStream,
             builder: (context, snapshot) {
               final items = snapshot.data ?? [];
               if (items.isEmpty) {
@@ -492,13 +532,35 @@ class _ShoppingListState extends State<_ShoppingList> {
   }
 }
 
-class _NotesBoard extends StatelessWidget {
+class _NotesBoard extends StatefulWidget {
   const _NotesBoard({required this.household});
 
   final Household household;
 
   @override
+  State<_NotesBoard> createState() => _NotesBoardState();
+}
+
+class _NotesBoardState extends State<_NotesBoard> {
+  late Stream<List<ConviveNote>> _notesStream;
+
+  @override
+  void initState() {
+    super.initState();
+    _notesStream = NoteService.streamNotes(widget.household.id);
+  }
+
+  @override
+  void didUpdateWidget(covariant _NotesBoard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.household.id != widget.household.id) {
+      _notesStream = NoteService.streamNotes(widget.household.id);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final household = widget.household;
     final l10n = context.l10n;
     return CorkboardSurface(
       child: Padding(
@@ -515,7 +577,7 @@ class _NotesBoard extends StatelessWidget {
               ),
             ),
             StreamBuilder<List<ConviveNote>>(
-              stream: NoteService.streamNotes(household.id),
+              stream: _notesStream,
               builder: (context, snapshot) {
                 final notes = snapshot.data ?? [];
                 if (notes.isEmpty) {

@@ -279,19 +279,44 @@ Future<void> mostrarNuevoGasto(
 
 String _formatearFecha(BuildContext context, DateTime d) => '${d.day} ${mesesCortos(context)[d.month - 1]}';
 
-class _ExpensesSection extends StatelessWidget {
+class _ExpensesSection extends StatefulWidget {
   const _ExpensesSection({required this.household});
 
   final Household household;
 
+  @override
+  State<_ExpensesSection> createState() => _ExpensesSectionState();
+}
+
+class _ExpensesSectionState extends State<_ExpensesSection> {
+  // Stream estable -- igual que en weekly_calendar.dart, esta pestaña se
+  // reconstruye a menudo por los streams de badges del piso; sin esto, el
+  // StreamBuilder de abajo se desuscribía y resuscribía en cada rebuild.
+  late Stream<List<Expense>> _expensesStream;
+
+  @override
+  void initState() {
+    super.initState();
+    _expensesStream = ExpenseService.streamExpenses(widget.household.id);
+  }
+
+  @override
+  void didUpdateWidget(covariant _ExpensesSection oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.household.id != widget.household.id) {
+      _expensesStream = ExpenseService.streamExpenses(widget.household.id);
+    }
+  }
+
   String _nombre(AppLocalizations l10n, String uid) =>
-      household.memberProfiles[uid]?.displayName ?? l10n.memberUnknown;
+      widget.household.memberProfiles[uid]?.displayName ?? l10n.memberUnknown;
 
   @override
   Widget build(BuildContext context) {
+    final household = widget.household;
     final l10n = context.l10n;
     return StreamBuilder<List<Expense>>(
-      stream: ExpenseService.streamExpenses(household.id),
+      stream: _expensesStream,
       builder: (context, snapshot) {
         if (!snapshot.hasData) {
           return const Padding(
@@ -436,16 +461,38 @@ class _BalanceCard extends StatelessWidget {
   }
 }
 
-class _RemindersSection extends StatelessWidget {
+class _RemindersSection extends StatefulWidget {
   const _RemindersSection({required this.household});
 
   final Household household;
 
   @override
+  State<_RemindersSection> createState() => _RemindersSectionState();
+}
+
+class _RemindersSectionState extends State<_RemindersSection> {
+  late Stream<List<PaymentReminder>> _remindersStream;
+
+  @override
+  void initState() {
+    super.initState();
+    _remindersStream = ReminderService.streamReminders(widget.household.id);
+  }
+
+  @override
+  void didUpdateWidget(covariant _RemindersSection oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.household.id != widget.household.id) {
+      _remindersStream = ReminderService.streamReminders(widget.household.id);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final household = widget.household;
     final l10n = context.l10n;
     return StreamBuilder<List<PaymentReminder>>(
-      stream: ReminderService.streamReminders(household.id),
+      stream: _remindersStream,
       builder: (context, snapshot) {
         if (!snapshot.hasData) {
           return const Padding(
