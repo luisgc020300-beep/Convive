@@ -340,6 +340,11 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String chatSystemDebtSettled(String from, String to, String amount) {
+    return '$from paid $to $amount€';
+  }
+
+  @override
   String get paymentsExpensesTitle => 'Shared expenses';
 
   @override
@@ -418,6 +423,22 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get paymentsOneTime => 'one-off payment';
+
+  @override
+  String get paymentsSettleAction => 'I\'ve received it';
+
+  @override
+  String get paymentsSettleConfirmTitle => 'Confirm payment?';
+
+  @override
+  String paymentsSettleConfirmBody(String amount, String name) {
+    return 'You\'re about to mark that you received $amount€ from $name. This will settle that debt between you two.';
+  }
+
+  @override
+  String paymentsSettlementDone(String from, String to) {
+    return '$from paid $to';
+  }
 
   @override
   String get paymentsSummaryTooltip => 'Expense summary';

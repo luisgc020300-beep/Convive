@@ -704,6 +704,12 @@ abstract class AppLocalizations {
   /// **'{name} clavó una nota: {text}'**
   String chatSystemNoteAdded(String name, String text);
 
+  /// No description provided for @chatSystemDebtSettled.
+  ///
+  /// In es, this message translates to:
+  /// **'{from} le pagó {amount}€ a {to}'**
+  String chatSystemDebtSettled(String from, String to, String amount);
+
   /// No description provided for @paymentsExpensesTitle.
   ///
   /// In es, this message translates to:
@@ -847,6 +853,30 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'pago puntual'**
   String get paymentsOneTime;
+
+  /// No description provided for @paymentsSettleAction.
+  ///
+  /// In es, this message translates to:
+  /// **'He cobrado'**
+  String get paymentsSettleAction;
+
+  /// No description provided for @paymentsSettleConfirmTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'¿Confirmas el pago?'**
+  String get paymentsSettleConfirmTitle;
+
+  /// No description provided for @paymentsSettleConfirmBody.
+  ///
+  /// In es, this message translates to:
+  /// **'Vas a marcar que has recibido {amount}€ de {name}. Esto saldará esa deuda entre los dos.'**
+  String paymentsSettleConfirmBody(String amount, String name);
+
+  /// No description provided for @paymentsSettlementDone.
+  ///
+  /// In es, this message translates to:
+  /// **'{from} le pagó a {to}'**
+  String paymentsSettlementDone(String from, String to);
 
   /// No description provided for @paymentsSummaryTooltip.
   ///

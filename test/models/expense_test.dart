@@ -13,6 +13,7 @@ Expense _gasto({
   required Map<String, double> splits,
   ExpenseCategory category = ExpenseCategory.otros,
   DateTime? createdAt,
+  bool isSettlement = false,
 }) {
   return Expense(
     id: 'e1',
@@ -22,6 +23,7 @@ Expense _gasto({
     splits: splits,
     category: category,
     createdAt: createdAt,
+    isSettlement: isSettlement,
   );
 }
 
@@ -71,6 +73,18 @@ void main() {
       expect(balances['a'], 15.0);
       // "b" no pagó nada, le tocaban 15 -> -15 (debe 15)
       expect(balances['b'], -15.0);
+    });
+
+    test('un settlement cancela la deuda entre quien debía y quien cobró', () {
+      // a debía 20 a b; a "paga" 20 que se reparten enteros a b -- misma
+      // aritmética que un gasto normal, pero deja a los dos en 0.
+      final gastos = [
+        _gasto(amount: 30.0, paidByUid: 'b', splits: {'a': 20.0, 'b': 10.0}),
+        _gasto(amount: 20.0, paidByUid: 'a', splits: {'b': 20.0}, isSettlement: true),
+      ];
+      final balances = calcularBalances(gastos);
+      expect(balances['a'], 0.0);
+      expect(balances['b'], 0.0);
     });
 
     test('varios gastos se acumulan', () {
@@ -123,6 +137,21 @@ void main() {
 
     test('sin createdAt no cuenta para ningún mes', () {
       final gastos = [_gasto(amount: 10.0, paidByUid: 'a', splits: {})];
+      final totales = gastosPorCategoria(gastos, mes: DateTime(2026, 3, 1));
+      expect(totales, isEmpty);
+    });
+
+    test('un settlement no cuenta como gasto real aunque sea del mes', () {
+      final gastos = [
+        _gasto(
+          amount: 20.0,
+          paidByUid: 'a',
+          splits: {'b': 20.0},
+          category: ExpenseCategory.otros,
+          createdAt: DateTime(2026, 3, 10),
+          isSettlement: true,
+        ),
+      ];
       final totales = gastosPorCategoria(gastos, mes: DateTime(2026, 3, 1));
       expect(totales, isEmpty);
     });

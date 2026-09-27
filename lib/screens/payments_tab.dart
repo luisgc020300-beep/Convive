@@ -311,6 +311,36 @@ class _ExpensesSectionState extends State<_ExpensesSection> {
   String _nombre(AppLocalizations l10n, String uid) =>
       widget.household.memberProfiles[uid]?.displayName ?? l10n.memberUnknown;
 
+  Future<void> _confirmarLiquidarDeuda(BuildContext context, Household household, Settlement s) async {
+    final l10n = context.l10n;
+    final confirmado = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(l10n.paymentsSettleConfirmTitle),
+        content: Text(l10n.paymentsSettleConfirmBody(s.amount.toStringAsFixed(2), _nombre(l10n, s.fromUid))),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(l10n.cancel)),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: context.colors.mint, foregroundColor: const Color(0xFF0B2116)),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(l10n.paymentsSettleAction),
+          ),
+        ],
+      ),
+    );
+    if (confirmado != true) return;
+    try {
+      await ExpenseService.settleDebt(
+        householdId: household.id,
+        fromUid: s.fromUid,
+        toUid: s.toUid,
+        amount: s.amount,
+      );
+    } catch (e) {
+      if (context.mounted) AppError.show(context, l10n.errorGeneric);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final household = widget.household;
@@ -356,13 +386,34 @@ class _ExpensesSectionState extends State<_ExpensesSection> {
                         padding: EdgeInsets.symmetric(vertical: 6),
                         child: DashedDivider(),
                       ),
-                      Text(
-                        l10n.paymentsOwes(_nombre(l10n, settlements[i].fromUid), _nombre(l10n, settlements[i].toUid)),
-                        style: TextStyle(fontSize: 13, color: context.colors.paper),
-                      ),
-                      Align(
-                        alignment: Alignment.centerRight,
-                        child: Text('${settlements[i].amount.toStringAsFixed(2)}€', style: ConviveText.amount(fontSize: 15, color: context.colors.mint)),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  l10n.paymentsOwes(_nombre(l10n, settlements[i].fromUid), _nombre(l10n, settlements[i].toUid)),
+                                  style: TextStyle(fontSize: 13, color: context.colors.paper),
+                                ),
+                                Text(
+                                  '${settlements[i].amount.toStringAsFixed(2)}€',
+                                  style: ConviveText.amount(fontSize: 15, color: context.colors.mint),
+                                ),
+                              ],
+                            ),
+                          ),
+                          // Solo quien COBRA puede marcarlo pagado -- si
+                          // pudiera hacerlo quien debe, podría hacer
+                          // desaparecer una deuda real sin que la otra
+                          // persona confirme haberla recibido.
+                          if (settlements[i].toUid == FirebaseAuth.instance.currentUser?.uid)
+                            TextButton(
+                              onPressed: () => _confirmarLiquidarDeuda(context, household, settlements[i]),
+                              child: Text(l10n.paymentsSettleAction),
+                            ),
+                        ],
                       ),
                     ],
                   ],
@@ -384,18 +435,30 @@ class _ExpensesSectionState extends State<_ExpensesSection> {
                       padding: const EdgeInsets.symmetric(vertical: 10),
                       child: Row(
                         children: [
-                          Icon(expenses[i].category.icon, size: 17, color: context.colors.paperMuted),
+                          Icon(
+                            expenses[i].isSettlement ? Icons.handshake_outlined : expenses[i].category.icon,
+                            size: 17,
+                            color: expenses[i].isSettlement ? context.colors.mint : context.colors.paperMuted,
+                          ),
                           const SizedBox(width: 10),
                           Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(expenses[i].description, style: const TextStyle(fontWeight: FontWeight.w600)),
-                                const SizedBox(height: 2),
-                                Text(l10n.paymentsPaidBy(_nombre(l10n, expenses[i].paidByUid)),
-                                    style: TextStyle(fontSize: 11.5, color: context.colors.paperMuted)),
-                              ],
-                            ),
+                            child: expenses[i].isSettlement
+                                ? Text(
+                                    l10n.paymentsSettlementDone(
+                                      _nombre(l10n, expenses[i].paidByUid),
+                                      _nombre(l10n, expenses[i].splits.keys.first),
+                                    ),
+                                    style: const TextStyle(fontWeight: FontWeight.w600),
+                                  )
+                                : Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(expenses[i].description, style: const TextStyle(fontWeight: FontWeight.w600)),
+                                      const SizedBox(height: 2),
+                                      Text(l10n.paymentsPaidBy(_nombre(l10n, expenses[i].paidByUid)),
+                                          style: TextStyle(fontSize: 11.5, color: context.colors.paperMuted)),
+                                    ],
+                                  ),
                           ),
                           Text('${expenses[i].amount.toStringAsFixed(2)}€',
                               style: ConviveText.amount(fontSize: 15, color: context.colors.paper)),

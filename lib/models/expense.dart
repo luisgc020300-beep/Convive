@@ -66,6 +66,12 @@ class Expense {
   final Map<String, double> splits; // uid -> cuánto le toca pagar de este gasto
   final ExpenseCategory category;
   final DateTime? createdAt;
+  // true si este "gasto" no es una compra real sino un pago registrado para
+  // saldar una deuda (ver settleDebt en ExpenseService) -- matemáticamente
+  // es un gasto normal (paidByUid = quien debía, splits = {quien cobró:
+  // importe}), pero no debe contarse en el resumen por categorías ni
+  // mostrarse como una compra en el listado.
+  final bool isSettlement;
 
   const Expense({
     required this.id,
@@ -75,6 +81,7 @@ class Expense {
     required this.splits,
     required this.category,
     this.createdAt,
+    this.isSettlement = false,
   });
 
   factory Expense.fromDoc(DocumentSnapshot<Map<String, dynamic>> doc) {
@@ -88,6 +95,7 @@ class Expense {
       splits: rawSplits.map((uid, v) => MapEntry(uid, (v as num).toDouble())),
       category: ExpenseCategoryX.fromWire(d['category'] as String?),
       createdAt: (d['createdAt'] as Timestamp?)?.toDate(),
+      isSettlement: d['isSettlement'] as bool? ?? false,
     );
   }
 }
@@ -99,6 +107,7 @@ Map<ExpenseCategory, double> gastosPorCategoria(List<Expense> expenses, {DateTim
   final ref = mes ?? DateTime.now();
   final totales = <ExpenseCategory, double>{};
   for (final e in expenses) {
+    if (e.isSettlement) continue; // pago de deuda, no una compra real
     final fecha = e.createdAt;
     if (fecha == null || fecha.year != ref.year || fecha.month != ref.month) continue;
     totales[e.category] = (totales[e.category] ?? 0) + e.amount;

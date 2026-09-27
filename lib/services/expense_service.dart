@@ -58,6 +58,34 @@ class ExpenseService {
     });
   }
 
+  /// Registra el pago de una deuda ya simplificada (botón "He cobrado" en
+  /// Pagos) -- matemáticamente es un gasto donde [fromUid] (quien debía) se
+  /// abona el importe entero y [toUid] (quien cobró) se lo resta entero, así
+  /// que cancela el balance entre ambos sin tocar calcularBalances(). Solo
+  /// quien COBRA debería llamar a esto (decisión de producto: quien debe
+  /// dinero no tiene forma de marcarlo pagado él solo, para que no pueda
+  /// hacer desaparecer una deuda real sin que la otra persona lo confirme).
+  static Future<void> settleDebt({
+    required String householdId,
+    required String fromUid,
+    required String toUid,
+    required double amount,
+  }) async {
+    await _db
+        .collection('households')
+        .doc(householdId)
+        .collection('expenses')
+        .add({
+      'description': '',
+      'amount': amount,
+      'paidByUid': fromUid,
+      'splits': {toUid: amount},
+      'category': ExpenseCategory.otros.wireValue,
+      'isSettlement': true,
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+  }
+
   static Future<void> deleteExpense(String householdId, String expenseId) async {
     await _db
         .collection('households')

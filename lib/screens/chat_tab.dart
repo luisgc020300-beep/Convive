@@ -84,6 +84,13 @@ class _ChatTabState extends State<ChatTab> {
         return l10n.chatSystemReminderAdded(nombre, d['title'] as String? ?? '');
       case 'noteAdded':
         return l10n.chatSystemNoteAdded(nombre, d['text'] as String? ?? '');
+      case 'debtSettled':
+        final amount = (d['amount'] as num?)?.toStringAsFixed(2) ?? '0.00';
+        return l10n.chatSystemDebtSettled(
+          d['fromName'] as String? ?? l10n.memberUnknown,
+          d['toName'] as String? ?? l10n.memberUnknown,
+          amount,
+        );
       default:
         return m.text;
     }
@@ -94,6 +101,7 @@ class _ChatTabState extends State<ChatTab> {
         'expenseAdded' => Icons.payments_outlined,
         'reminderAdded' => Icons.event_repeat_outlined,
         'noteAdded' => Icons.push_pin_outlined,
+        'debtSettled' => Icons.handshake_outlined,
         _ => Icons.info_outline,
       };
 

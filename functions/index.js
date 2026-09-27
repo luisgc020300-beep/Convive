@@ -621,7 +621,38 @@ exports.notificarGastoNuevo = onDocumentCreated(
     const { householdId } = event.params;
     const houseSnap = await db.collection('households').doc(householdId).get();
     if (!houseSnap.exists) return;
-    const nombrePagador = houseSnap.data().memberProfiles?.[gasto.paidByUid]?.displayName || 'Alguien';
+    const houseData = houseSnap.data();
+
+    // Un settlement (botón "He cobrado") es un gasto especial que salda una
+    // deuda, no una compra nueva -- avisar de eso como "gasto nuevo" sería
+    // engañoso (hablaría de una compra que no existió). Aviso y mensaje de
+    // chat propios en su lugar.
+    if (gasto.isSettlement) {
+      const deudorUid = gasto.paidByUid;
+      const acreedorUid = Object.keys(gasto.splits || {})[0];
+      const nombreDeudor = houseData.memberProfiles?.[deudorUid]?.displayName || 'Alguien';
+      const nombreAcreedor = houseData.memberProfiles?.[acreedorUid]?.displayName || 'Alguien';
+
+      const prefs = await prefsDe(deudorUid);
+      if (prefs.nuevoGasto) {
+        await enviarPush(
+          deudorUid,
+          'Convive',
+          `${nombreAcreedor} ha confirmado que le pagaste ${Number(gasto.amount).toFixed(2)}€`,
+          { type: 'deudaSaldada' },
+        );
+      }
+
+      await db.collection('households').doc(householdId).collection('messages').add({
+        type: 'system',
+        event: 'debtSettled',
+        eventData: { fromName: nombreDeudor, toName: nombreAcreedor, amount: Number(gasto.amount) || 0 },
+        createdAt: FieldValue.serverTimestamp(),
+      });
+      return;
+    }
+
+    const nombrePagador = houseData.memberProfiles?.[gasto.paidByUid]?.displayName || 'Alguien';
 
     for (const uid of Object.keys(gasto.splits || {})) {
       if (uid === gasto.paidByUid) continue; // no hace falta avisar a quien ya lo sabe -- lo pagó él
