@@ -53,7 +53,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           children: [
             _SettingsSection(children: [
               _SettingsRow(
-                icon: Icons.dark_mode_rounded,
+                icon: Icons.dark_mode_outlined,
                 badgeColor: _BadgeColors.apariencia,
                 titulo: l10n.settingsAppearance,
                 subtitulo: _nombreModoTema(l10n, ThemeController.instance.mode),
@@ -63,7 +63,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             const SizedBox(height: 20),
             _SettingsSection(children: [
               _SettingsRow(
-                icon: Icons.language_rounded,
+                icon: Icons.language_outlined,
                 badgeColor: _BadgeColors.idioma,
                 titulo: l10n.settingsLanguage,
                 subtitulo: _nombreIdioma(l10n, LocaleController.instance.locale),
@@ -73,7 +73,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             const SizedBox(height: 20),
             _SettingsSection(children: [
               _SettingsRow(
-                icon: Icons.notifications_rounded,
+                icon: Icons.notifications_outlined,
                 badgeColor: _BadgeColors.notificaciones,
                 titulo: l10n.settingsNotifications,
                 subtitulo: l10n.settingsNotificationsSubtitle,
@@ -85,7 +85,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             const SizedBox(height: 8),
             _SettingsSection(children: [
               _SettingsRow(
-                icon: Icons.logout_rounded,
+                icon: Icons.logout_outlined,
                 badgeColor: colors.amber,
                 iconColor: colors.onAccent,
                 titulo: l10n.settingsSignOut,
@@ -94,7 +94,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 mostrarChevron: false,
               ),
               _SettingsRow(
-                icon: Icons.delete_forever_rounded,
+                icon: Icons.delete_forever_outlined,
                 badgeColor: colors.rust,
                 iconColor: colors.onAccent,
                 titulo: l10n.settingsDeleteAccount,
@@ -155,7 +155,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       builder: (ctx) => AlertDialog(
         title: Row(
           children: [
-            Icon(Icons.warning_rounded, color: colors.rust, size: 20),
+            Icon(Icons.warning_amber_outlined, color: colors.rust, size: 20),
             const SizedBox(width: 8),
             Text(l10n.settingsDeleteAccount),
           ],

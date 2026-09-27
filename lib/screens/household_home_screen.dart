@@ -396,7 +396,7 @@ class _PisoTabState extends State<_PisoTab> {
         const SizedBox(height: 12),
         OutlinedButton.icon(
           onPressed: () => _confirmarSalir(context, household),
-          icon: Icon(Icons.logout, size: 18, color: colors.rust),
+          icon: Icon(Icons.logout_outlined, size: 18, color: colors.rust),
           label: Text(l10n.householdLeave, style: TextStyle(color: colors.rust)),
         ),
       ],

@@ -53,7 +53,7 @@ extension TaskCategoryX on TaskCategory {
         TaskCategory.bathroom => Icons.bathtub_outlined,
         TaskCategory.livingRoom => Icons.weekend_outlined,
         TaskCategory.bedroom => Icons.bed_outlined,
-        TaskCategory.other => Icons.checklist_rounded,
+        TaskCategory.other => Icons.checklist_outlined,
       };
 
   String label(AppLocalizations l10n) => switch (this) {
