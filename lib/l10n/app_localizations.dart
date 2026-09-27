@@ -482,6 +482,18 @@ abstract class AppLocalizations {
   /// **'No'**
   String get shoppingAddExpenseNo;
 
+  /// No description provided for @shoppingForEveryone.
+  ///
+  /// In es, this message translates to:
+  /// **'Todos'**
+  String get shoppingForEveryone;
+
+  /// No description provided for @shoppingForWho.
+  ///
+  /// In es, this message translates to:
+  /// **'¿Para quién?'**
+  String get shoppingForWho;
+
   /// No description provided for @tasksPinNote.
   ///
   /// In es, this message translates to:

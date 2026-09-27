@@ -18,7 +18,8 @@ class ShoppingService {
         .map((snap) => snap.docs.map(ShoppingItem.fromDoc).toList());
   }
 
-  static Future<void> addItem(String householdId, String text) async {
+  /// [paraUid] es para quién es -- null significa "para todo el piso".
+  static Future<void> addItem(String householdId, String text, {String? paraUid}) async {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return;
     await _db
@@ -28,6 +29,7 @@ class ShoppingService {
         .add({
       'text': text.trim(),
       'authorUid': uid,
+      'paraUid': paraUid,
       'createdAt': FieldValue.serverTimestamp(),
     });
   }

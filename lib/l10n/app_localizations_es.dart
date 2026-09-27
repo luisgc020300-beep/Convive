@@ -214,6 +214,12 @@ class AppLocalizationsEs extends AppLocalizations {
   String get shoppingAddExpenseNo => 'No';
 
   @override
+  String get shoppingForEveryone => 'Todos';
+
+  @override
+  String get shoppingForWho => '¿Para quién?';
+
+  @override
   String get tasksPinNote => 'Clavar nota';
 
   @override

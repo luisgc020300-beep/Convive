@@ -325,6 +325,11 @@ class _ShoppingList extends StatefulWidget {
 
 class _ShoppingListState extends State<_ShoppingList> {
   final _textCtrl = TextEditingController();
+  // "Para quién" del próximo ítem a añadir -- por defecto, tú mismo (lo más
+  // común), null significa "para todo el piso". Se mantiene entre un
+  // añadido y el siguiente a propósito: si vas apuntando varias cosas
+  // tuyas seguidas, no hace falta reelegir cada vez.
+  late String? _paraUidSeleccionado = FirebaseAuth.instance.currentUser?.uid;
 
   @override
   void dispose() {
@@ -336,7 +341,7 @@ class _ShoppingListState extends State<_ShoppingList> {
     final text = _textCtrl.text.trim();
     if (text.isEmpty) return;
     try {
-      await ShoppingService.addItem(widget.household.id, text);
+      await ShoppingService.addItem(widget.household.id, text, paraUid: _paraUidSeleccionado);
       _textCtrl.clear();
     } catch (e) {
       if (mounted) AppError.show(context, context.l10n.errorGeneric);
@@ -371,14 +376,13 @@ class _ShoppingListState extends State<_ShoppingList> {
     );
     if (esGasto == true && mounted) {
       final miUid = FirebaseAuth.instance.currentUser?.uid;
-      // Por defecto, solo entre quien compra y quien lo pidió -- puede ser
-      // algo personal de un compañero (p.ej. "cómprame yogures"), no un
-      // gasto de todo el piso. Se puede ampliar a mano en el formulario si
-      // en realidad sí era para todos.
-      final incluidosIniciales = <String>{
-        ?miUid,
-        item.authorUid,
-      };
+      // Si el ítem era para todo el piso, el reparto por defecto es todo
+      // el piso; si era para una persona concreta, solo entre quien compra
+      // y quien lo pidió -- se puede ampliar a mano en el formulario si al
+      // final sí era para todos.
+      final incluidosIniciales = item.paraUid == null
+          ? {...widget.household.members}
+          : <String>{?miUid, item.paraUid!};
       await mostrarNuevoGasto(
         context,
         widget.household,
@@ -415,6 +419,41 @@ class _ShoppingListState extends State<_ShoppingList> {
               ),
             ],
           ),
+          const SizedBox(height: 6),
+          SizedBox(
+            height: 30,
+            child: ListView(
+              scrollDirection: Axis.horizontal,
+              children: [
+                ...widget.household.members.map((uid) {
+                  final seleccionado = uid == _paraUidSeleccionado;
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 6),
+                    child: ChoiceChip(
+                      selected: seleccionado,
+                      onSelected: (_) => setState(() => _paraUidSeleccionado = uid),
+                      label: Text(widget.household.memberProfiles[uid]?.displayName ?? l10n.memberUnknown),
+                      labelStyle: TextStyle(
+                          fontSize: 12, color: seleccionado ? const Color(0xFF0B2116) : colors.paper),
+                      selectedColor: colors.mint,
+                      backgroundColor: colors.corkDark,
+                      side: BorderSide.none,
+                    ),
+                  );
+                }),
+                ChoiceChip(
+                  selected: _paraUidSeleccionado == null,
+                  onSelected: (_) => setState(() => _paraUidSeleccionado = null),
+                  label: Text(l10n.shoppingForEveryone),
+                  labelStyle: TextStyle(
+                      fontSize: 12, color: _paraUidSeleccionado == null ? const Color(0xFF0B2116) : colors.paper),
+                  selectedColor: colors.mint,
+                  backgroundColor: colors.corkDark,
+                  side: BorderSide.none,
+                ),
+              ],
+            ),
+          ),
           StreamBuilder<List<ShoppingItem>>(
             stream: ShoppingService.streamItems(widget.household.id),
             builder: (context, snapshot) {
@@ -430,7 +469,9 @@ class _ShoppingListState extends State<_ShoppingList> {
               }
               return Column(
                 children: items.map((item) {
-                  final autor = widget.household.memberProfiles[item.authorUid]?.displayName ?? l10n.memberUnknown;
+                  final para = item.paraUid == null
+                      ? l10n.shoppingForEveryone
+                      : (widget.household.memberProfiles[item.paraUid]?.displayName ?? l10n.memberUnknown);
                   return ListTile(
                     contentPadding: EdgeInsets.zero,
                     dense: true,
@@ -439,7 +480,7 @@ class _ShoppingListState extends State<_ShoppingList> {
                       onPressed: () => _marcarComprada(item),
                     ),
                     title: Text(item.text, style: TextStyle(color: colors.paper)),
-                    subtitle: Text(autor, style: TextStyle(color: colors.paperMuted, fontSize: 11.5)),
+                    subtitle: Text(para, style: TextStyle(color: colors.paperMuted, fontSize: 11.5)),
                   );
                 }).toList(),
               );

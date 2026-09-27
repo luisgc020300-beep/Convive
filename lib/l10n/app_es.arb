@@ -76,6 +76,8 @@
   "shoppingAddExpenseQuestion": "¿Fue un gasto compartido?",
   "shoppingAddExpenseYes": "Sí, apuntarlo",
   "shoppingAddExpenseNo": "No",
+  "shoppingForEveryone": "Todos",
+  "shoppingForWho": "¿Para quién?",
   "tasksPinNote": "Clavar nota",
   "tasksBoardEmpty": "El corcho está vacío. Clava la primera nota.",
   "tasksNewNoteTitle": "Clavar una nota",

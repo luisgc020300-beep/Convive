@@ -76,6 +76,8 @@
   "shoppingAddExpenseQuestion": "Was this a shared expense?",
   "shoppingAddExpenseYes": "Yes, log it",
   "shoppingAddExpenseNo": "No",
+  "shoppingForEveryone": "Everyone",
+  "shoppingForWho": "For who?",
   "tasksPinNote": "Pin note",
   "tasksBoardEmpty": "The board is empty. Pin the first note.",
   "tasksNewNoteTitle": "Pin a note",

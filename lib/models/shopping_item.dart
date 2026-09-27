@@ -11,12 +11,18 @@ class ShoppingItem {
   final String id;
   final String text;
   final String authorUid;
+  // Para quién es -- normalmente quien lo apunta (por defecto, ver
+  // ShoppingService.addItem), pero puede ser otra persona (p.ej. "cómprame
+  // esto") o null si es un ítem de todo el piso, no de una persona
+  // concreta. Determina el reparto por defecto al pasarlo a Pagos.
+  final String? paraUid;
   final DateTime? createdAt;
 
   const ShoppingItem({
     required this.id,
     required this.text,
     required this.authorUid,
+    this.paraUid,
     this.createdAt,
   });
 
@@ -26,6 +32,7 @@ class ShoppingItem {
       id: doc.id,
       text: d['text'] as String? ?? '',
       authorUid: d['authorUid'] as String? ?? '',
+      paraUid: d['paraUid'] as String?,
       createdAt: (d['createdAt'] as Timestamp?)?.toDate(),
     );
   }
