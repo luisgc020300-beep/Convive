@@ -9,6 +9,7 @@
 // tareas semanales y "cada X días" sí podemos decir honestamente "esto
 // toca el jueves que viene y le tocaría a Ana", porque ya no depende de
 // cuándo se pulsó "Hecho" la última vez.
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/material.dart';
 
 import '../l10n/date_names.dart';
@@ -89,6 +90,13 @@ class _WeeklyCalendarState extends State<WeeklyCalendar> {
   int _monthOffset = 0;
   bool _expandido = false;
   late DateTime _selectedDay = _todayMidnight();
+  // Evita el doble toque en el botón de "marcar hecha" del calendario (a
+  // diferencia del de _TaskCard, este no tenía ningún estado deshabilitado
+  // mientras la petición está en curso) -- dos toques casi simultáneos
+  // mandan dos completeTask para el mismo día, y el segundo el servidor lo
+  // rechaza correctamente como "ya estaba hecho", pero eso no debería
+  // sentirse como un error real de cara al usuario.
+  final _marcandoHecha = <String>{};
 
   static DateTime _todayMidnight() {
     final n = DateTime.now();
@@ -105,7 +113,9 @@ class _WeeklyCalendarState extends State<WeeklyCalendar> {
   }
 
   Future<void> _marcarHecha(ConviveTask task, DateTime day) async {
+    if (_marcandoHecha.contains(task.id)) return;
     final l10n = context.l10n;
+    setState(() => _marcandoHecha.add(task.id));
     try {
       await TaskService.completeTask(
         householdId: widget.household.id,
@@ -113,7 +123,14 @@ class _WeeklyCalendarState extends State<WeeklyCalendar> {
         occurrenceDate: day,
       );
     } catch (e) {
-      if (mounted) AppError.show(context, l10n.errorGeneric);
+      if (mounted) {
+        // "Ya estaba hecha" es un rechazo esperado (doble toque, o ya se
+        // marcó desde otra pestaña abierta) -- no es un fallo real.
+        final yaHecha = e is FirebaseFunctionsException && e.code == 'failed-precondition';
+        AppError.show(context, yaHecha ? l10n.tasksAlreadyDone : l10n.errorGeneric);
+      }
+    } finally {
+      if (mounted) setState(() => _marcandoHecha.remove(task.id));
     }
   }
 
@@ -232,6 +249,7 @@ class _WeeklyCalendarState extends State<WeeklyCalendar> {
                           .where((c) => c.occurrenceDate != null && _sameDay(c.occurrenceDate!, _selectedDay))
                           .toList(),
                       reminders: reminders.where((r) => _reminderOcurreEnDia(r, _selectedDay)).toList(),
+                      tareasEnCurso: _marcandoHecha,
                       onMarcarHecha: (task) => _marcarHecha(task, _selectedDay),
                     ),
                     const SizedBox(height: 8),
@@ -486,6 +504,7 @@ class _DayDetail extends StatelessWidget {
     required this.day,
     required this.completions,
     required this.reminders,
+    required this.tareasEnCurso,
     required this.onMarcarHecha,
   });
 
@@ -494,6 +513,7 @@ class _DayDetail extends StatelessWidget {
   final DateTime day;
   final List<TaskCompletion> completions;
   final List<PaymentReminder> reminders;
+  final Set<String> tareasEnCurso;
   final void Function(ConviveTask task) onMarcarHecha;
 
   // Mismo límite que CORRECCION_MAX_DIAS del servidor -- no ofrecer un botón
@@ -547,23 +567,25 @@ class _DayDetail extends StatelessWidget {
             )),
         ...falladas.map((c) {
           final task = tasksPorId[c.taskId];
+          final enCurso = task != null && tareasEnCurso.contains(task.id);
           return _DetailRow(
             texto: c.taskTitle,
             persona: _nameForMembers(l10n, household, c.assigneeUids),
             color: _colorForMember(colors, household, _primero(c.assigneeUids)),
             icono: Icons.cancel,
-            accion: (_corregible && task != null) ? () => onMarcarHecha(task) : null,
+            accion: (_corregible && task != null && !enCurso) ? () => onMarcarHecha(task) : null,
           );
         }),
         ...programadas.map((t) {
           final asignados = t.asignadosEnDia(day);
+          final enCurso = tareasEnCurso.contains(t.id);
           return _DetailRow(
             texto: t.title,
             persona: _nameForMembers(l10n, household, asignados),
             color: _colorForMember(colors, household, _primero(asignados)),
             icono: Icons.schedule,
             pendiente: !_corregible,
-            accion: _corregible ? () => onMarcarHecha(t) : null,
+            accion: (_corregible && !enCurso) ? () => onMarcarHecha(t) : null,
           );
         }),
       ],

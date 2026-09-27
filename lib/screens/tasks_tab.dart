@@ -1,4 +1,5 @@
 // lib/screens/tasks_tab.dart
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
@@ -260,7 +261,12 @@ class _TaskCard extends StatelessWidget {
                         taskId: task.id,
                       );
                     } catch (e) {
-                      if (context.mounted) AppError.show(context, context.l10n.errorGeneric);
+                      if (!context.mounted) return;
+                      // "Ya estaba hecha" es un rechazo esperado (p.ej. un
+                      // doble toque, o ya la marcó otra pestaña abierta) --
+                      // no es un fallo real, así que no debe sonar a error.
+                      final yaHecha = e is FirebaseFunctionsException && e.code == 'failed-precondition';
+                      AppError.show(context, yaHecha ? context.l10n.tasksAlreadyDone : context.l10n.errorGeneric);
                     }
                   },
             child: Text(task.completadaHoy ? l10n.tasksDoneToday : (esMiTurno ? l10n.tasksDone : l10n.tasksMarkDone)),
