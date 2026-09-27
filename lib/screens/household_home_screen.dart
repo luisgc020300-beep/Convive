@@ -87,6 +87,9 @@ List<String> _nombresPestanas(AppLocalizations l10n) =>
 
 class _HouseholdShellState extends State<_HouseholdShell> {
   int _index = 0;
+  // Controla el PageView del cuerpo -- permite deslizar entre pestañas con
+  // el dedo, no solo tocando la barra de abajo.
+  final _pageController = PageController();
 
   // Streams estables, creados una sola vez por piso -- si en vez de esto se
   // llama a HouseholdService.streamLastSeen()/ChatService.streamMessages()/
@@ -203,11 +206,28 @@ class _HouseholdShellState extends State<_HouseholdShell> {
     }
   }
 
-  void _cambiarPestana(int i) {
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  // Disparado tanto al tocar la barra de abajo (jumpToPage) como al
+  // deslizar con el dedo (onPageChanged del PageView) -- un único punto
+  // para "qué pestaña se ve ahora", sin duplicar la lógica de marcar visto.
+  void _onPageChanged(int i) {
     setState(() => _index = i);
     if (i == 0) _marcarNotasVistas(widget.household.id);
     if (i == 1) _marcarChatVisto(widget.household.id);
     if (i == 2) _marcarPagosVistos(widget.household.id);
+  }
+
+  void _cambiarPestana(int i) {
+    // Salto directo, sin animación -- igual que el IndexedStack de antes.
+    // El deslizar con el dedo ya tiene su propia animación nativa del
+    // PageView; tocar una pestaña lejana no debería sobrevolar las de en
+    // medio.
+    _pageController.jumpToPage(i);
   }
 
   @override
@@ -215,10 +235,10 @@ class _HouseholdShellState extends State<_HouseholdShell> {
     final household = widget.household;
     final l10n = context.l10n;
     final tabs = [
-      TasksTab(household: household),
-      ChatTab(household: household),
-      PaymentsTab(household: household),
-      _PisoTab(household: household),
+      _KeepAlivePage(child: TasksTab(household: household)),
+      _KeepAlivePage(child: ChatTab(household: household)),
+      _KeepAlivePage(child: PaymentsTab(household: household)),
+      _KeepAlivePage(child: _PisoTab(household: household)),
     ];
     return StreamBuilder<Map<String, dynamic>>(
       stream: _lastSeenStream,
@@ -326,7 +346,11 @@ class _HouseholdShellState extends State<_HouseholdShell> {
                       ),
                     ],
                   ),
-                  body: IndexedStack(index: _index, children: tabs),
+                  body: PageView(
+                    controller: _pageController,
+                    onPageChanged: _onPageChanged,
+                    children: tabs,
+                  ),
                   bottomNavigationBar: NavigationBar(
                     height: 56,
                     selectedIndex: _index,
@@ -363,6 +387,31 @@ class _HouseholdShellState extends State<_HouseholdShell> {
                     ],
                   ),
     );
+  }
+}
+
+// Sin esto, el PageView desmonta cada pestaña en cuanto sale de la
+// pantalla al deslizar (a diferencia del IndexedStack de antes, que las
+// mantenía todas montadas) -- reconstruiría TasksTab/ChatTab/etc. desde
+// cero cada vez que vuelves a ella, perdiendo la posición de scroll y
+// re-suscribiendo sus streams sin necesidad.
+class _KeepAlivePage extends StatefulWidget {
+  const _KeepAlivePage({required this.child});
+
+  final Widget child;
+
+  @override
+  State<_KeepAlivePage> createState() => _KeepAlivePageState();
+}
+
+class _KeepAlivePageState extends State<_KeepAlivePage> with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    return widget.child;
   }
 }
 
