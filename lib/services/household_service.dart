@@ -76,6 +76,37 @@ class HouseholdService {
     }, SetOptions(merge: true));
   }
 
+  /// Información fija del piso (wifi, contacto del casero, normas
+  /// acordadas...) -- a diferencia de las notas, que son avisos que pasan
+  /// y se acumulan, esto es la referencia que no se pierde en el scroll.
+  /// Un solo bloque de texto libre, editable por cualquier miembro del
+  /// piso (si cambia el wifi, quien se entere debe poder actualizarlo, no
+  /// solo quien lo escribió la primera vez).
+  static Stream<String> streamInfoPiso(String householdId) {
+    return _db
+        .collection('households')
+        .doc(householdId)
+        .collection('meta')
+        .doc('info')
+        .snapshots()
+        .map((doc) => doc.data()?['text'] as String? ?? '');
+  }
+
+  static Future<void> actualizarInfoPiso(String householdId, String texto) async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+    await _db
+        .collection('households')
+        .doc(householdId)
+        .collection('meta')
+        .doc('info')
+        .set({
+      'text': texto,
+      'updatedBy': uid,
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+  }
+
   static Stream<Household> streamHousehold(String householdId) {
     return _db
         .collection('households')

@@ -15,6 +15,8 @@ import '../services/chat_service.dart';
 import '../services/household_service.dart';
 import '../services/note_service.dart';
 import '../theme/design_tokens.dart';
+import '../widgets/app_error.dart';
+import '../widgets/convive_sheet.dart';
 import 'chat_tab.dart';
 import 'create_household_screen.dart';
 import 'join_household_screen.dart';
@@ -321,6 +323,8 @@ class _PisoTabState extends State<_PisoTab> {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
+        _InfoPiso(household: household),
+        const SizedBox(height: 24),
         Text(l10n.householdYourName, style: Theme.of(context).textTheme.titleSmall),
         const SizedBox(height: 8),
         Row(
@@ -390,6 +394,92 @@ class _PisoTabState extends State<_PisoTab> {
     if (confirmar == true) {
       await HouseholdService.leaveHousehold(household.id);
     }
+  }
+}
+
+class _InfoPiso extends StatelessWidget {
+  const _InfoPiso({required this.household});
+
+  final Household household;
+
+  Future<void> _editar(BuildContext context, String actual) async {
+    final ctrl = TextEditingController(text: actual);
+    final l10n = context.l10n;
+    await showConviveSheet<void>(
+      context: context,
+      title: l10n.householdInfoTitle,
+      builder: (ctx, setState) => Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          TextField(
+            controller: ctrl,
+            autofocus: true,
+            maxLines: 8,
+            minLines: 4,
+            decoration: InputDecoration(hintText: l10n.householdInfoHint),
+          ),
+          const SizedBox(height: 16),
+          FilledButton(
+            onPressed: () async {
+              try {
+                await HouseholdService.actualizarInfoPiso(household.id, ctrl.text.trim());
+                if (ctx.mounted) Navigator.pop(ctx);
+              } catch (e) {
+                if (ctx.mounted) AppError.show(ctx, l10n.errorGeneric);
+              }
+            },
+            child: Text(l10n.save),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    final l10n = context.l10n;
+    return StreamBuilder<String>(
+      stream: HouseholdService.streamInfoPiso(household.id),
+      builder: (context, snapshot) {
+        final texto = snapshot.data ?? '';
+        return Container(
+          width: double.infinity,
+          decoration: BoxDecoration(color: colors.cork, borderRadius: BorderRadius.circular(14)),
+          padding: const EdgeInsets.all(14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.info_outline, size: 16, color: colors.amber),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(l10n.householdInfoTitle,
+                        style: TextStyle(fontWeight: FontWeight.w700, color: colors.paper)),
+                  ),
+                  IconButton(
+                    icon: Icon(Icons.edit_outlined, size: 18, color: colors.paperMuted),
+                    onPressed: () => _editar(context, texto),
+                    tooltip: l10n.householdInfoEdit,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Text(
+                texto.isEmpty ? l10n.householdInfoEmpty : texto,
+                style: TextStyle(
+                  color: texto.isEmpty ? colors.paperMuted : colors.paper,
+                  fontSize: 13,
+                  fontStyle: texto.isEmpty ? FontStyle.italic : FontStyle.normal,
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 }
 

@@ -68,6 +68,12 @@ service cloud.firestore {
         allow read, create, delete: if isAuth() && isMember(hid);
         allow update: if false;
       }
+
+      match /meta/{docId} {
+        // Info fija del piso (wifi, casero, normas) -- cualquier miembro
+        // puede leer Y editar, no solo quien la escribió la primera vez.
+        allow read, write: if isAuth() && isMember(hid);
+      }
     }
   }
 }

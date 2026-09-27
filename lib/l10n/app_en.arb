@@ -200,6 +200,10 @@
   "notifNewMessageTitle": "Chat message",
   "notifNewMessageSubtitle": "When a new message arrives",
 
+  "householdInfoTitle": "Flat info",
+  "householdInfoHint": "Wifi, landlord contact, agreed rules...",
+  "householdInfoEmpty": "Nothing written down yet.",
+  "householdInfoEdit": "Edit",
   "householdYourName": "Your name in this flat",
   "householdNameHint": "How your flatmates see you",
   "householdYourHouseholds": "Your flats",

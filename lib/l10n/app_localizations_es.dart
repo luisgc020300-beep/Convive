@@ -578,6 +578,19 @@ class AppLocalizationsEs extends AppLocalizations {
   String get notifNewMessageSubtitle => 'Cuando llega un mensaje nuevo';
 
   @override
+  String get householdInfoTitle => 'Información del piso';
+
+  @override
+  String get householdInfoHint =>
+      'Wifi, contacto del casero, normas acordadas...';
+
+  @override
+  String get householdInfoEmpty => 'Todavía no hay nada apuntado.';
+
+  @override
+  String get householdInfoEdit => 'Editar';
+
+  @override
   String get householdYourName => 'Tu nombre en el piso';
 
   @override

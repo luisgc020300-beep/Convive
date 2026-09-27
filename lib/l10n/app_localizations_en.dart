@@ -576,6 +576,18 @@ class AppLocalizationsEn extends AppLocalizations {
   String get notifNewMessageSubtitle => 'When a new message arrives';
 
   @override
+  String get householdInfoTitle => 'Flat info';
+
+  @override
+  String get householdInfoHint => 'Wifi, landlord contact, agreed rules...';
+
+  @override
+  String get householdInfoEmpty => 'Nothing written down yet.';
+
+  @override
+  String get householdInfoEdit => 'Edit';
+
+  @override
   String get householdYourName => 'Your name in this flat';
 
   @override

@@ -1142,6 +1142,30 @@ abstract class AppLocalizations {
   /// **'Cuando llega un mensaje nuevo'**
   String get notifNewMessageSubtitle;
 
+  /// No description provided for @householdInfoTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Información del piso'**
+  String get householdInfoTitle;
+
+  /// No description provided for @householdInfoHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Wifi, contacto del casero, normas acordadas...'**
+  String get householdInfoHint;
+
+  /// No description provided for @householdInfoEmpty.
+  ///
+  /// In es, this message translates to:
+  /// **'Todavía no hay nada apuntado.'**
+  String get householdInfoEmpty;
+
+  /// No description provided for @householdInfoEdit.
+  ///
+  /// In es, this message translates to:
+  /// **'Editar'**
+  String get householdInfoEdit;
+
   /// No description provided for @householdYourName.
   ///
   /// In es, this message translates to:

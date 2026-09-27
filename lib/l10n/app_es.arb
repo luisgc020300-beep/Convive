@@ -200,6 +200,10 @@
   "notifNewMessageTitle": "Mensaje de chat",
   "notifNewMessageSubtitle": "Cuando llega un mensaje nuevo",
 
+  "householdInfoTitle": "Información del piso",
+  "householdInfoHint": "Wifi, contacto del casero, normas acordadas...",
+  "householdInfoEmpty": "Todavía no hay nada apuntado.",
+  "householdInfoEdit": "Editar",
   "householdYourName": "Tu nombre en el piso",
   "householdNameHint": "Cómo te ven tus compañeros",
   "householdYourHouseholds": "Tus pisos",
