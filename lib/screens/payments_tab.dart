@@ -76,12 +76,21 @@ class PaymentsTab extends StatelessWidget {
 }
 
 /// Pública -- también se abre desde la lista de la compra (Tareas) al
-/// marcar un ítem como comprado, con [descripcionInicial] ya rellena.
-Future<void> mostrarNuevoGasto(BuildContext context, Household household, {String? descripcionInicial}) async {
+/// marcar un ítem como comprado, con [descripcionInicial] ya rellena y,
+/// si se sabe quién lo pidió, [incluidosIniciales] para que el reparto por
+/// defecto sea solo entre quien compra y quien lo pidió -- no todo el piso,
+/// porque puede ser algo personal de un compañero (p.ej. "cómprame yogures"),
+/// no necesariamente un gasto común.
+Future<void> mostrarNuevoGasto(
+  BuildContext context,
+  Household household, {
+  String? descripcionInicial,
+  Set<String>? incluidosIniciales,
+}) async {
     final descCtrl = TextEditingController(text: descripcionInicial);
     final amountCtrl = TextEditingController();
     String paidByUid = FirebaseAuth.instance.currentUser?.uid ?? household.members.first;
-    final incluidos = {...household.members};
+    final incluidos = incluidosIniciales ?? {...household.members};
     ExpenseCategory categoria = ExpenseCategory.otros;
     final l10n = context.l10n;
 

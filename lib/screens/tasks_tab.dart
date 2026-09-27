@@ -370,7 +370,21 @@ class _ShoppingListState extends State<_ShoppingList> {
       ),
     );
     if (esGasto == true && mounted) {
-      await mostrarNuevoGasto(context, widget.household, descripcionInicial: item.text);
+      final miUid = FirebaseAuth.instance.currentUser?.uid;
+      // Por defecto, solo entre quien compra y quien lo pidió -- puede ser
+      // algo personal de un compañero (p.ej. "cómprame yogures"), no un
+      // gasto de todo el piso. Se puede ampliar a mano en el formulario si
+      // en realidad sí era para todos.
+      final incluidosIniciales = <String>{
+        ?miUid,
+        item.authorUid,
+      };
+      await mostrarNuevoGasto(
+        context,
+        widget.household,
+        descripcionInicial: item.text,
+        incluidosIniciales: incluidosIniciales,
+      );
     }
   }
 
@@ -416,6 +430,7 @@ class _ShoppingListState extends State<_ShoppingList> {
               }
               return Column(
                 children: items.map((item) {
+                  final autor = widget.household.memberProfiles[item.authorUid]?.displayName ?? l10n.memberUnknown;
                   return ListTile(
                     contentPadding: EdgeInsets.zero,
                     dense: true,
@@ -424,6 +439,7 @@ class _ShoppingListState extends State<_ShoppingList> {
                       onPressed: () => _marcarComprada(item),
                     ),
                     title: Text(item.text, style: TextStyle(color: colors.paper)),
+                    subtitle: Text(autor, style: TextStyle(color: colors.paperMuted, fontSize: 11.5)),
                   );
                 }).toList(),
               );
