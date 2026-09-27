@@ -7,8 +7,10 @@ import '../l10n/date_names.dart';
 import '../l10n/l10n.dart';
 import '../models/household.dart';
 import '../models/note.dart';
+import '../models/shopping_item.dart';
 import '../models/task.dart';
 import '../services/note_service.dart';
+import '../services/shopping_service.dart';
 import '../services/task_service.dart';
 import '../theme/design_tokens.dart';
 import '../widgets/app_error.dart';
@@ -57,6 +59,10 @@ class TasksTab extends StatelessWidget {
                     )
                   else
                     ...tareasDeHoy.map((t) => _TaskCard(household: household, task: t)),
+                  const SizedBox(height: 28),
+                  Text(l10n.shoppingTitle, style: Theme.of(context).textTheme.titleLarge),
+                  const SizedBox(height: 8),
+                  _ShoppingList(household: household),
                   const SizedBox(height: 28),
                   Text(l10n.tasksNotesTitle, style: Theme.of(context).textTheme.titleLarge),
                   const SizedBox(height: 8),
@@ -304,6 +310,104 @@ class _TaskCard extends StatelessWidget {
         if (context.mounted) AppError.show(context, l10n.errorGeneric);
       }
     }
+  }
+}
+
+class _ShoppingList extends StatefulWidget {
+  const _ShoppingList({required this.household});
+
+  final Household household;
+
+  @override
+  State<_ShoppingList> createState() => _ShoppingListState();
+}
+
+class _ShoppingListState extends State<_ShoppingList> {
+  final _textCtrl = TextEditingController();
+
+  @override
+  void dispose() {
+    _textCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _anadir() async {
+    final text = _textCtrl.text.trim();
+    if (text.isEmpty) return;
+    try {
+      await ShoppingService.addItem(widget.household.id, text);
+      _textCtrl.clear();
+    } catch (e) {
+      if (mounted) AppError.show(context, context.l10n.errorGeneric);
+    }
+  }
+
+  Future<void> _marcarComprada(ShoppingItem item) async {
+    try {
+      await ShoppingService.deleteItem(widget.household.id, item.id);
+    } catch (e) {
+      if (mounted) AppError.show(context, context.l10n.errorGeneric);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final colors = context.colors;
+    return Container(
+      decoration: BoxDecoration(color: colors.cork, borderRadius: BorderRadius.circular(14)),
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _textCtrl,
+                  decoration: InputDecoration(hintText: l10n.shoppingHint, isDense: true),
+                  onSubmitted: (_) => _anadir(),
+                  textInputAction: TextInputAction.done,
+                ),
+              ),
+              const SizedBox(width: 8),
+              IconButton(
+                icon: Icon(Icons.add_circle, color: colors.mint),
+                onPressed: _anadir,
+              ),
+            ],
+          ),
+          StreamBuilder<List<ShoppingItem>>(
+            stream: ShoppingService.streamItems(widget.household.id),
+            builder: (context, snapshot) {
+              final items = snapshot.data ?? [];
+              if (items.isEmpty) {
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  child: Text(
+                    l10n.shoppingEmpty,
+                    style: TextStyle(color: colors.paperMuted, fontSize: 13),
+                  ),
+                );
+              }
+              return Column(
+                children: items.map((item) {
+                  return ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    dense: true,
+                    leading: IconButton(
+                      icon: Icon(Icons.radio_button_unchecked, color: colors.paperMuted, size: 22),
+                      onPressed: () => _marcarComprada(item),
+                    ),
+                    title: Text(item.text, style: TextStyle(color: colors.paper)),
+                  );
+                }).toList(),
+              );
+            },
+          ),
+        ],
+      ),
+    );
   }
 }
 

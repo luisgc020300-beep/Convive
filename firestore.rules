@@ -59,6 +59,15 @@ service cloud.firestore {
         allow update: if false;
         allow delete: if isAuth() && isOwner(resource.data.createdBy);
       }
+
+      match /shoppingItems/{itemId} {
+        // A diferencia de notas/gastos/recordatorios, aquí SÍ puede borrar
+        // cualquier miembro del piso, no solo quien la apuntó -- es una
+        // lista de todos, marcar como comprada es tarea de quien fue al
+        // súper, no de quien se acordó de apuntarlo.
+        allow read, create, delete: if isAuth() && isMember(hid);
+        allow update: if false;
+      }
     }
   }
 }

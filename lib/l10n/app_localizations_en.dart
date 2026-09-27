@@ -193,6 +193,18 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get shoppingTitle => 'Shopping list';
+
+  @override
+  String get shoppingHint => 'E.g. Milk';
+
+  @override
+  String get shoppingEmpty => 'Nothing pending. All bought.';
+
+  @override
+  String get shoppingAdd => 'Add';
+
+  @override
   String get tasksPinNote => 'Pin note';
 
   @override

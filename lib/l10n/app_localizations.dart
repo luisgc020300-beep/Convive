@@ -440,6 +440,30 @@ abstract class AppLocalizations {
   /// **'Se dejará de repartir \"{title}\". El historial ya registrado no se borra.'**
   String tasksDeleteBody(String title);
 
+  /// No description provided for @shoppingTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Lista de la compra'**
+  String get shoppingTitle;
+
+  /// No description provided for @shoppingHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Ej: Leche'**
+  String get shoppingHint;
+
+  /// No description provided for @shoppingEmpty.
+  ///
+  /// In es, this message translates to:
+  /// **'Nada pendiente. Todo comprado.'**
+  String get shoppingEmpty;
+
+  /// No description provided for @shoppingAdd.
+  ///
+  /// In es, this message translates to:
+  /// **'Añadir'**
+  String get shoppingAdd;
+
   /// No description provided for @tasksPinNote.
   ///
   /// In es, this message translates to:

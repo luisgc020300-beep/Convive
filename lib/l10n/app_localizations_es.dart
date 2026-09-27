@@ -193,6 +193,18 @@ class AppLocalizationsEs extends AppLocalizations {
   }
 
   @override
+  String get shoppingTitle => 'Lista de la compra';
+
+  @override
+  String get shoppingHint => 'Ej: Leche';
+
+  @override
+  String get shoppingEmpty => 'Nada pendiente. Todo comprado.';
+
+  @override
+  String get shoppingAdd => 'Añadir';
+
+  @override
   String get tasksPinNote => 'Clavar nota';
 
   @override
