@@ -45,7 +45,7 @@ class PaymentsTab extends StatelessWidget {
                   ),
                 ),
                 TextButton.icon(
-                  onPressed: () => _mostrarNuevoGasto(context, household),
+                  onPressed: () => mostrarNuevoGasto(context, household),
                   icon: Icon(Icons.add, color: context.colors.mint),
                   label: Text(l10n.paymentsNew, style: TextStyle(color: context.colors.mint)),
                 ),
@@ -73,8 +73,12 @@ class PaymentsTab extends StatelessWidget {
     );
   }
 
-  Future<void> _mostrarNuevoGasto(BuildContext context, Household household) async {
-    final descCtrl = TextEditingController();
+}
+
+/// Pública -- también se abre desde la lista de la compra (Tareas) al
+/// marcar un ítem como comprado, con [descripcionInicial] ya rellena.
+Future<void> mostrarNuevoGasto(BuildContext context, Household household, {String? descripcionInicial}) async {
+    final descCtrl = TextEditingController(text: descripcionInicial);
     final amountCtrl = TextEditingController();
     String paidByUid = FirebaseAuth.instance.currentUser?.uid ?? household.members.first;
     final incluidos = {...household.members};
@@ -263,7 +267,6 @@ class PaymentsTab extends StatelessWidget {
       ),
     );
   }
-}
 
 String _formatearFecha(BuildContext context, DateTime d) => '${d.day} ${mesesCortos(context)[d.month - 1]}';
 

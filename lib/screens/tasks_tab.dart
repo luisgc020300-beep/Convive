@@ -16,6 +16,7 @@ import '../theme/design_tokens.dart';
 import '../widgets/app_error.dart';
 import '../widgets/convive_sheet.dart';
 import '../widgets/corkboard.dart';
+import 'payments_tab.dart' show mostrarNuevoGasto;
 import 'weekly_calendar.dart';
 
 class TasksTab extends StatelessWidget {
@@ -343,10 +344,33 @@ class _ShoppingListState extends State<_ShoppingList> {
   }
 
   Future<void> _marcarComprada(ShoppingItem item) async {
+    final l10n = context.l10n;
     try {
       await ShoppingService.deleteItem(widget.household.id, item.id);
     } catch (e) {
-      if (mounted) AppError.show(context, context.l10n.errorGeneric);
+      if (mounted) AppError.show(context, l10n.errorGeneric);
+      return;
+    }
+    if (!mounted) return;
+    // Justo el gesto que evita tener que acordarse de apuntarlo luego por
+    // separado: comprar y registrar el gasto en un solo paso.
+    final esGasto = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(l10n.shoppingAddExpenseQuestion),
+        content: Text(item.text),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(l10n.shoppingAddExpenseNo)),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: context.colors.mint, foregroundColor: const Color(0xFF0B2116)),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(l10n.shoppingAddExpenseYes),
+          ),
+        ],
+      ),
+    );
+    if (esGasto == true && mounted) {
+      await mostrarNuevoGasto(context, widget.household, descripcionInicial: item.text);
     }
   }
 

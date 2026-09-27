@@ -205,6 +205,15 @@ class AppLocalizationsEn extends AppLocalizations {
   String get shoppingAdd => 'Add';
 
   @override
+  String get shoppingAddExpenseQuestion => 'Was this a shared expense?';
+
+  @override
+  String get shoppingAddExpenseYes => 'Yes, log it';
+
+  @override
+  String get shoppingAddExpenseNo => 'No';
+
+  @override
   String get tasksPinNote => 'Pin note';
 
   @override

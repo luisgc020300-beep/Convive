@@ -464,6 +464,24 @@ abstract class AppLocalizations {
   /// **'Añadir'**
   String get shoppingAdd;
 
+  /// No description provided for @shoppingAddExpenseQuestion.
+  ///
+  /// In es, this message translates to:
+  /// **'¿Fue un gasto compartido?'**
+  String get shoppingAddExpenseQuestion;
+
+  /// No description provided for @shoppingAddExpenseYes.
+  ///
+  /// In es, this message translates to:
+  /// **'Sí, apuntarlo'**
+  String get shoppingAddExpenseYes;
+
+  /// No description provided for @shoppingAddExpenseNo.
+  ///
+  /// In es, this message translates to:
+  /// **'No'**
+  String get shoppingAddExpenseNo;
+
   /// No description provided for @tasksPinNote.
   ///
   /// In es, this message translates to:
