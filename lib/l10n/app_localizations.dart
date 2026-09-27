@@ -494,6 +494,12 @@ abstract class AppLocalizations {
   /// **'¿Para quién?'**
   String get shoppingForWho;
 
+  /// No description provided for @shoppingMarkBought.
+  ///
+  /// In es, this message translates to:
+  /// **'Marcar como comprado'**
+  String get shoppingMarkBought;
+
   /// No description provided for @tasksPinNote.
   ///
   /// In es, this message translates to:
@@ -553,6 +559,18 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'Mes'**
   String get tasksMonthView;
+
+  /// No description provided for @calendarPrevious.
+  ///
+  /// In es, this message translates to:
+  /// **'Anterior'**
+  String get calendarPrevious;
+
+  /// No description provided for @calendarNext.
+  ///
+  /// In es, this message translates to:
+  /// **'Siguiente'**
+  String get calendarNext;
 
   /// No description provided for @recurrenceDaily.
   ///
@@ -649,6 +667,12 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'Escribe un mensaje...'**
   String get chatHint;
+
+  /// No description provided for @chatSend.
+  ///
+  /// In es, this message translates to:
+  /// **'Enviar'**
+  String get chatSend;
 
   /// No description provided for @chatDeleteMessage.
   ///

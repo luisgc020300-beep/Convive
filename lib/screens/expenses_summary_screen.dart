@@ -46,6 +46,7 @@ class _ExpensesSummaryScreenState extends State<ExpensesSummaryScreen> {
                 children: [
                   IconButton(
                     icon: const Icon(Icons.chevron_left),
+                    tooltip: l10n.calendarPrevious,
                     onPressed: () => setState(() => _mes = DateTime(_mes.year, _mes.month - 1)),
                   ),
                   Text(
@@ -54,6 +55,7 @@ class _ExpensesSummaryScreenState extends State<ExpensesSummaryScreen> {
                   ),
                   IconButton(
                     icon: const Icon(Icons.chevron_right),
+                    tooltip: l10n.calendarNext,
                     onPressed: () => setState(() => _mes = DateTime(_mes.year, _mes.month + 1)),
                   ),
                 ],

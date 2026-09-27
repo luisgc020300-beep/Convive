@@ -305,6 +305,7 @@ class _TaskCard extends StatelessWidget {
           ),
           IconButton(
             icon: Icon(Icons.delete_outline, size: 18, color: context.colors.paperMuted),
+            tooltip: l10n.delete,
             onPressed: () => _confirmarBorrado(context, household, task),
           ),
         ],
@@ -455,6 +456,7 @@ class _ShoppingListState extends State<_ShoppingList> {
               const SizedBox(width: 8),
               IconButton(
                 icon: Icon(Icons.add_circle, color: colors.mint),
+                tooltip: l10n.shoppingAdd,
                 onPressed: _anadir,
               ),
             ],
@@ -517,6 +519,7 @@ class _ShoppingListState extends State<_ShoppingList> {
                     dense: true,
                     leading: IconButton(
                       icon: Icon(Icons.radio_button_unchecked, color: colors.paperMuted, size: 22),
+                      tooltip: l10n.shoppingMarkBought,
                       onPressed: () => _marcarComprada(item),
                     ),
                     title: Text(item.text, style: TextStyle(color: colors.paper)),

@@ -213,6 +213,7 @@ class _WeeklyCalendarState extends State<WeeklyCalendar> {
                       children: [
                         IconButton(
                           icon: Icon(Icons.chevron_left, color: colors.paper),
+                          tooltip: l10n.calendarPrevious,
                           onPressed: () => setState(() =>
                               _expandido ? _monthOffset-- : _weekOffset--),
                         ),
@@ -226,6 +227,7 @@ class _WeeklyCalendarState extends State<WeeklyCalendar> {
                         ),
                         IconButton(
                           icon: Icon(Icons.chevron_right, color: colors.paper),
+                          tooltip: l10n.calendarNext,
                           onPressed: () => setState(() =>
                               _expandido ? _monthOffset++ : _weekOffset++),
                         ),
@@ -661,6 +663,7 @@ class _DetailRow extends StatelessWidget {
           if (accion != null)
             IconButton(
               icon: Icon(Icons.check_circle_outline, size: 18, color: context.colors.mint),
+              tooltip: context.l10n.tasksMarkDone,
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints(),
               visualDensity: VisualDensity.compact,

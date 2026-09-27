@@ -220,6 +220,9 @@ class AppLocalizationsEs extends AppLocalizations {
   String get shoppingForWho => '¿Para quién?';
 
   @override
+  String get shoppingMarkBought => 'Marcar como comprado';
+
+  @override
   String get tasksPinNote => 'Clavar nota';
 
   @override
@@ -250,6 +253,12 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get tasksMonthView => 'Mes';
+
+  @override
+  String get calendarPrevious => 'Anterior';
+
+  @override
+  String get calendarNext => 'Siguiente';
 
   @override
   String get recurrenceDaily => 'Cada día';
@@ -299,6 +308,9 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get chatHint => 'Escribe un mensaje...';
+
+  @override
+  String get chatSend => 'Enviar';
 
   @override
   String get chatDeleteMessage => 'Borrar mensaje';

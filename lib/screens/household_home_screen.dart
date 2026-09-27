@@ -254,6 +254,7 @@ class _HouseholdShellState extends State<_HouseholdShell> {
                     actions: [
                       IconButton(
                         icon: const Icon(Icons.notifications_outlined, size: 22),
+                        tooltip: l10n.notifTitle,
                         onPressed: () => Navigator.push(
                           context,
                           MaterialPageRoute(builder: (_) => const NotificationPrefsScreen()),
@@ -261,6 +262,7 @@ class _HouseholdShellState extends State<_HouseholdShell> {
                       ),
                       IconButton(
                         icon: const Icon(Icons.settings_outlined, size: 22),
+                        tooltip: l10n.settingsTitle,
                         onPressed: () => Navigator.push(
                           context,
                           MaterialPageRoute(builder: (_) => const SettingsScreen()),
@@ -651,6 +653,7 @@ class _PisoRowState extends State<_PisoRow> {
               ],
               IconButton(
                 icon: Icon(Icons.delete_outline, size: 20, color: colors.paperMuted),
+                tooltip: l10n.householdLeave,
                 onPressed: () => _confirmarSalir(context, household),
               ),
             ],

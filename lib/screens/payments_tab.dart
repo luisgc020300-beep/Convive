@@ -402,6 +402,7 @@ class _ExpensesSectionState extends State<_ExpensesSection> {
                           if (expenses[i].paidByUid == myUid)
                             IconButton(
                               icon: Icon(Icons.close, size: 16, color: context.colors.paperMuted),
+                              tooltip: l10n.delete,
                               onPressed: () async {
                                 try {
                                   await ExpenseService.deleteExpense(household.id, expenses[i].id);
@@ -544,6 +545,7 @@ class _RemindersSectionState extends State<_RemindersSection> {
                       if (reminders[i].createdBy == myUid)
                         IconButton(
                           icon: Icon(Icons.close, size: 16, color: context.colors.paperMuted),
+                          tooltip: l10n.delete,
                           onPressed: () async {
                             try {
                               await ReminderService.deleteReminder(household.id, reminders[i].id);

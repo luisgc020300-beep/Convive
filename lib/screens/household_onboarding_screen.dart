@@ -18,6 +18,7 @@ class HouseholdOnboardingScreen extends StatelessWidget {
         actions: [
           IconButton(
             icon: const Icon(Icons.logout),
+            tooltip: l10n.settingsSignOut,
             onPressed: () => FirebaseAuth.instance.signOut(),
           ),
         ],

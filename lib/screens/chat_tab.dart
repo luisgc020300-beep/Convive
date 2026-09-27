@@ -292,7 +292,11 @@ class _ChatTabState extends State<ChatTab> {
                     textInputAction: TextInputAction.send,
                   ),
                 ),
-                IconButton(icon: Icon(Icons.send, color: context.colors.coral), onPressed: _enviar),
+                IconButton(
+                  icon: Icon(Icons.send, color: context.colors.coral),
+                  tooltip: l10n.chatSend,
+                  onPressed: _enviar,
+                ),
               ],
             ),
           ),
