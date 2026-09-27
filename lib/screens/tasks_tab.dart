@@ -81,7 +81,7 @@ class _TasksTabState extends State<TasksTab> {
                   if (tareasDeHoy.isEmpty)
                     Padding(
                       padding: const EdgeInsets.symmetric(vertical: 12),
-                      child: Text(l10n.tasksNothingToday),
+                      child: Text(l10n.tasksNothingToday, style: TextStyle(color: context.colors.paperMuted)),
                     )
                   else
                     ...tareasDeHoy.map((t) => _TaskCard(household: household, task: t)),

@@ -179,7 +179,16 @@ class _ChatTabState extends State<ChatTab> {
               }
               final messages = snapshot.data ?? [];
               if (messages.isEmpty) {
-                return Center(child: Text(l10n.chatEmpty));
+                return Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.chat_bubble_outline, size: 32, color: context.colors.paperMuted),
+                      const SizedBox(height: 10),
+                      Text(l10n.chatEmpty, style: TextStyle(color: context.colors.paperMuted)),
+                    ],
+                  ),
+                );
               }
               return ListView.builder(
                 reverse: true,
