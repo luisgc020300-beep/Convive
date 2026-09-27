@@ -41,6 +41,7 @@
   "joinHouseholdCodeRequired": "Introduce el código que te han pasado",
   "joinHouseholdNotFound": "No existe ningún piso con ese código.",
   "joinHouseholdFull": "Ese piso ya tiene el máximo de miembros.",
+  "joinHouseholdTooManyAttempts": "Demasiados intentos. Espera unos minutos y vuelve a intentarlo.",
   "joinHouseholdError": "No se pudo unir al piso: {error}",
   "@joinHouseholdError": {"placeholders": {"error": {"type": "String"}}},
   "joinHouseholdButton": "Unirme",

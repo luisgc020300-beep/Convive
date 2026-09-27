@@ -118,6 +118,10 @@ class AppLocalizationsEs extends AppLocalizations {
   String get joinHouseholdFull => 'Ese piso ya tiene el máximo de miembros.';
 
   @override
+  String get joinHouseholdTooManyAttempts =>
+      'Demasiados intentos. Espera unos minutos y vuelve a intentarlo.';
+
+  @override
   String joinHouseholdError(String error) {
     return 'No se pudo unir al piso: $error';
   }

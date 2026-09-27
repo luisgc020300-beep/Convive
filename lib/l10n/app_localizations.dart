@@ -308,6 +308,12 @@ abstract class AppLocalizations {
   /// **'Ese piso ya tiene el máximo de miembros.'**
   String get joinHouseholdFull;
 
+  /// No description provided for @joinHouseholdTooManyAttempts.
+  ///
+  /// In es, this message translates to:
+  /// **'Demasiados intentos. Espera unos minutos y vuelve a intentarlo.'**
+  String get joinHouseholdTooManyAttempts;
+
   /// No description provided for @joinHouseholdError.
   ///
   /// In es, this message translates to:

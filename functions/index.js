@@ -138,6 +138,36 @@ exports.createHousehold = onCall({ region: REGION }, async (request) => {
   return { ok: true, householdId: householdRef.id, joinCode };
 });
 
+// Límite de intentos por cuenta -- el espacio de códigos (32 caracteres ^ 6
+// ≈ 1070 millones de combinaciones) ya es una defensa razonable por sí solo,
+// pero esto añade una segunda capa contra ir probando códigos al azar desde
+// una sola cuenta. Solo cuentan los intentos FALLIDOS (código equivocado),
+// para no penalizar a alguien que de verdad se une a varios pisos seguidos.
+const JOIN_RATE_LIMIT_VENTANA_MS = 15 * 60 * 1000;
+const JOIN_RATE_LIMIT_MAX_INTENTOS = 10;
+
+async function joinEstaBloqueado(uid) {
+  const snap = await db.collection('joinAttempts').doc(uid).get();
+  if (!snap.exists) return false;
+  const data = snap.data();
+  if (Date.now() - data.ventanaInicio >= JOIN_RATE_LIMIT_VENTANA_MS) return false;
+  return data.intentos >= JOIN_RATE_LIMIT_MAX_INTENTOS;
+}
+
+async function joinRegistrarIntentoFallido(uid) {
+  const ref = db.collection('joinAttempts').doc(uid);
+  const ahoraMs = Date.now();
+  await db.runTransaction(async (tx) => {
+    const snap = await tx.get(ref);
+    const data = snap.exists ? snap.data() : null;
+    const dentroDeVentana = data && ahoraMs - data.ventanaInicio < JOIN_RATE_LIMIT_VENTANA_MS;
+    tx.set(ref, {
+      intentos: dentroDeVentana ? data.intentos + 1 : 1,
+      ventanaInicio: dentroDeVentana ? data.ventanaInicio : ahoraMs,
+    });
+  });
+}
+
 // =============================================================================
 // 2. UNIRSE A UN PISO
 // =============================================================================
@@ -146,6 +176,9 @@ exports.joinHousehold = onCall({ region: REGION }, async (request) => {
     throw new HttpsError('unauthenticated', 'Debes estar autenticado.');
   }
   const uid = request.auth.uid;
+  if (await joinEstaBloqueado(uid)) {
+    throw new HttpsError('resource-exhausted', 'Demasiados intentos. Espera unos minutos y vuelve a intentarlo.');
+  }
   const raw = typeof request.data?.joinCode === 'string' ? request.data.joinCode : '';
   const joinCode = raw.trim().toUpperCase();
   if (!joinCode) {
@@ -154,6 +187,7 @@ exports.joinHousehold = onCall({ region: REGION }, async (request) => {
 
   const codeSnap = await db.collection('joinCodes').doc(joinCode).get();
   if (!codeSnap.exists) {
+    await joinRegistrarIntentoFallido(uid);
     throw new HttpsError('not-found', 'No existe ningún piso con ese código.');
   }
   const householdId = codeSnap.data().householdId;
@@ -189,6 +223,9 @@ exports.joinHousehold = onCall({ region: REGION }, async (request) => {
       householdIds: FieldValue.arrayUnion(householdId),
     }, { merge: true });
   });
+
+  // Código correcto -- se olvida cualquier racha de intentos fallidos previa.
+  await db.collection('joinAttempts').doc(uid).delete().catch(() => {});
 
   return { ok: true, householdId, yaEraMiembro };
 });

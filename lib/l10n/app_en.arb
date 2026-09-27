@@ -41,6 +41,7 @@
   "joinHouseholdCodeRequired": "Enter the code you were given",
   "joinHouseholdNotFound": "No flat exists with that code.",
   "joinHouseholdFull": "That flat already has the maximum number of members.",
+  "joinHouseholdTooManyAttempts": "Too many attempts. Wait a few minutes and try again.",
   "joinHouseholdError": "Couldn't join the flat: {error}",
   "@joinHouseholdError": {"placeholders": {"error": {"type": "String"}}},
   "joinHouseholdButton": "Join",

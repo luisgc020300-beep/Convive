@@ -118,6 +118,10 @@ class AppLocalizationsEn extends AppLocalizations {
       'That flat already has the maximum number of members.';
 
   @override
+  String get joinHouseholdTooManyAttempts =>
+      'Too many attempts. Wait a few minutes and try again.';
+
+  @override
   String joinHouseholdError(String error) {
     return 'Couldn\'t join the flat: $error';
   }

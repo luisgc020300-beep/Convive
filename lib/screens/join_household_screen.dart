@@ -40,6 +40,7 @@ class _JoinHouseholdScreenState extends State<JoinHouseholdScreen> {
       setState(() => _error = switch (e.code) {
         'not-found' => l10n.joinHouseholdNotFound,
         'failed-precondition' => l10n.joinHouseholdFull,
+        'resource-exhausted' => l10n.joinHouseholdTooManyAttempts,
         _ => l10n.joinHouseholdError(e.message ?? e.code),
       });
     } catch (e) {
