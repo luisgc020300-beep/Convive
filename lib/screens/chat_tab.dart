@@ -30,8 +30,26 @@ class _ChatTabState extends State<ChatTab> {
   // reconstruyen con cada mensaje/nota nuevos) el StreamBuilder de aquí
   // recibiría una instancia de Stream distinta y se desuscribiría/
   // resuscribiría sin necesidad -- mismo bug ya encontrado y arreglado en
-  // household_home_screen.dart.
-  late final _messagesStream = ChatService.streamMessages(widget.household.id);
+  // household_home_screen.dart. OJO: tenía que ser un campo normal, NO
+  // "late final" -- con "late final" nunca se recalcula, así que al
+  // cambiar de piso activo (el ChatTab sigue vivo dentro del IndexedStack,
+  // no se destruye) se quedaba escuchando el chat del piso viejo para
+  // siempre. Se recalcula en didUpdateWidget cuando cambia el piso.
+  late Stream<List<ChatMessage>> _messagesStream;
+
+  @override
+  void initState() {
+    super.initState();
+    _messagesStream = ChatService.streamMessages(widget.household.id);
+  }
+
+  @override
+  void didUpdateWidget(covariant ChatTab oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.household.id != widget.household.id) {
+      _messagesStream = ChatService.streamMessages(widget.household.id);
+    }
+  }
 
   @override
   void dispose() {
