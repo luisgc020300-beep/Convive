@@ -17,10 +17,7 @@ import 'package:flutter/foundation.dart'
 class DefaultFirebaseOptions {
   static FirebaseOptions get currentPlatform {
     if (kIsWeb) {
-      throw UnsupportedError(
-        'DefaultFirebaseOptions have not been configured for web - '
-        'you can reconfigure this by running the FlutterFire CLI again.',
-      );
+      return web;
     }
     switch (defaultTargetPlatform) {
       case TargetPlatform.android:
@@ -64,5 +61,19 @@ class DefaultFirebaseOptions {
     projectId: 'convive-piso-app',
     storageBucket: 'convive-piso-app.firebasestorage.app',
     iosBundleId: 'com.convive.convive',
+  );
+
+  // Solo para desarrollo local (flutter run -d chrome) -- no forma parte de
+  // ningún build de producción (Android/iOS via Sideloadly), así que la API
+  // key aquí no es más sensible que la de Android/iOS de arriba: las tres
+  // están protegidas por las reglas de Firestore/Functions, no por ser
+  // secretas (son públicas por diseño en cualquier app cliente de Firebase).
+  static const FirebaseOptions web = FirebaseOptions(
+    apiKey: 'AIzaSyB1PtKwy7qvV5ExfIyR6M2otONINSLxI_8',
+    appId: '1:902658804253:web:e831869e4f8adbdaa814f4',
+    messagingSenderId: '902658804253',
+    projectId: 'convive-piso-app',
+    authDomain: 'convive-piso-app.firebaseapp.com',
+    storageBucket: 'convive-piso-app.firebasestorage.app',
   );
 }

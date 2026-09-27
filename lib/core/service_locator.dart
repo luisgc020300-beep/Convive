@@ -19,8 +19,13 @@ Future<void> setupLocator() async {
   await connectivity.init();
   sl.registerSingleton<ConnectivityService>(connectivity);
 
-  await _saveFcmToken();
-  FirebaseMessaging.instance.onTokenRefresh.listen(_updateFcmToken);
+  // FCM push web necesita VAPID key + service worker propios, fuera de
+  // alcance por ahora -- sin este guard, un fallo aquí intenta reportarse a
+  // Crashlytics, que tampoco existe en web (mismo problema que en main.dart).
+  if (!kIsWeb) {
+    await _saveFcmToken();
+    FirebaseMessaging.instance.onTokenRefresh.listen(_updateFcmToken);
+  }
 }
 
 Future<void> _saveFcmToken() async {
