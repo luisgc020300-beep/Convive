@@ -45,6 +45,13 @@ class HouseholdService {
   static Stream<Map<String, dynamic>> streamLastSeen() {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return Stream.value(const {});
+    // OJO: mientras el FieldValue.serverTimestamp() de markChatSeen/
+    // markNotesSeen no se ha confirmado con el servidor (tarda más bajo
+    // mala cobertura), esa clave del mapa llega como null en este stream --
+    // el plugin de Flutter no permite pedir una estimación local para
+    // snapshots() en vivo (GetOptions.serverTimestampBehavior solo existe
+    // para .get() puntual). El "null" se compensa en el lado que lee este
+    // stream (household_home_screen.dart) con un valor local optimista.
     return _db.collection('users').doc(uid).snapshots().map((doc) => {
           'chat': (doc.data()?['lastSeenChat'] as Map<String, dynamic>?) ?? {},
           'notes': (doc.data()?['lastSeenNotes'] as Map<String, dynamic>?) ?? {},

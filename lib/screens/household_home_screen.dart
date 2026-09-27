@@ -73,6 +73,36 @@ class _HouseholdShellState extends State<_HouseholdShell> {
   late Stream<List<ChatMessage>> _chatStream;
   late Stream<List<ConviveNote>> _notesStream;
 
+  // Respaldo optimista local -- streamLastSeen() puede tardar en reflejar
+  // un markChatSeen/markNotesSeen reciente bajo mala cobertura (el
+  // FieldValue.serverTimestamp() llega como null hasta que el servidor lo
+  // confirma, ver el comentario en HouseholdService.streamLastSeen), y
+  // mientras tanto el resto del código leía ese null como "nunca visto" --
+  // el badge volvía a mostrar TODOS los mensajes/notas como sin leer en
+  // cuanto se salía de la pestaña donde el "0" se estaba forzando a mano.
+  // Guardando aquí el momento exacto en que se marcó como visto (antes
+  // incluso de que la escritura salga), y usando el más reciente entre
+  // este valor y el de Firestore, el contador nunca retrocede aunque la
+  // confirmación tarde.
+  final _chatSeenLocal = <String, DateTime>{};
+  final _notesSeenLocal = <String, DateTime>{};
+
+  void _marcarChatVisto(String householdId) {
+    _chatSeenLocal[householdId] = DateTime.now();
+    HouseholdService.markChatSeen(householdId);
+  }
+
+  void _marcarNotasVistas(String householdId) {
+    _notesSeenLocal[householdId] = DateTime.now();
+    HouseholdService.markNotesSeen(householdId);
+  }
+
+  DateTime? _masReciente(DateTime? a, DateTime? b) {
+    if (a == null) return b;
+    if (b == null) return a;
+    return a.isAfter(b) ? a : b;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -80,7 +110,7 @@ class _HouseholdShellState extends State<_HouseholdShell> {
     _iniciarStreamsDelPiso();
     // La pestaña por defecto es Tareas -- "entrar" en ella ya cuenta como
     // haber visto las notas, igual que tocarla a mano.
-    HouseholdService.markNotesSeen(widget.household.id);
+    _marcarNotasVistas(widget.household.id);
   }
 
   void _iniciarStreamsDelPiso() {
@@ -95,15 +125,15 @@ class _HouseholdShellState extends State<_HouseholdShell> {
       _iniciarStreamsDelPiso();
       // Cambiaste de piso -- "entrar" en él marca como vista la pestaña que
       // ya tuvieras seleccionada, en ese piso nuevo.
-      if (_index == 0) HouseholdService.markNotesSeen(widget.household.id);
-      if (_index == 1) HouseholdService.markChatSeen(widget.household.id);
+      if (_index == 0) _marcarNotasVistas(widget.household.id);
+      if (_index == 1) _marcarChatVisto(widget.household.id);
     }
   }
 
   void _cambiarPestana(int i) {
     setState(() => _index = i);
-    if (i == 0) HouseholdService.markNotesSeen(widget.household.id);
-    if (i == 1) HouseholdService.markChatSeen(widget.household.id);
+    if (i == 0) _marcarNotasVistas(widget.household.id);
+    if (i == 1) _marcarChatVisto(widget.household.id);
   }
 
   @override
@@ -121,8 +151,14 @@ class _HouseholdShellState extends State<_HouseholdShell> {
       builder: (context, lastSeenSnapshot) {
         final lastSeenChat = lastSeenSnapshot.data?['chat'] as Map<String, dynamic>? ?? const {};
         final lastSeenNotes = lastSeenSnapshot.data?['notes'] as Map<String, dynamic>? ?? const {};
-        final desdeChat = (lastSeenChat[household.id] as Timestamp?)?.toDate();
-        final desdeNotas = (lastSeenNotes[household.id] as Timestamp?)?.toDate();
+        final desdeChat = _masReciente(
+          (lastSeenChat[household.id] as Timestamp?)?.toDate(),
+          _chatSeenLocal[household.id],
+        );
+        final desdeNotas = _masReciente(
+          (lastSeenNotes[household.id] as Timestamp?)?.toDate(),
+          _notesSeenLocal[household.id],
+        );
 
         return StreamBuilder<List<ChatMessage>>(
           stream: _chatStream,
@@ -139,7 +175,7 @@ class _HouseholdShellState extends State<_HouseholdShell> {
               // reaparezca al cambiar de pestaña y volver.
               sinLeerChat = 0;
               WidgetsBinding.instance
-                  .addPostFrameCallback((_) => HouseholdService.markChatSeen(household.id));
+                  .addPostFrameCallback((_) => _marcarChatVisto(household.id));
             }
 
             return StreamBuilder<List<ConviveNote>>(
@@ -152,7 +188,7 @@ class _HouseholdShellState extends State<_HouseholdShell> {
                 if (_index == 0 && sinLeerNotas > 0) {
                   sinLeerNotas = 0;
                   WidgetsBinding.instance
-                      .addPostFrameCallback((_) => HouseholdService.markNotesSeen(household.id));
+                      .addPostFrameCallback((_) => _marcarNotasVistas(household.id));
                 }
 
                 return Scaffold(
