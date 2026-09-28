@@ -4,6 +4,7 @@ import 'dart:ui';
 import 'package:flutter/foundation.dart' show kDebugMode, kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
@@ -21,6 +22,25 @@ import 'theme/theme_controller.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+
+  // App Check: Play Integrity (Android) / App Attest (iOS) en release, token
+  // de depuración en debug. Sin proveedor de reCAPTCHA configurado para web
+  // todavía, así que se salta ahí (web es solo para previsualizar cambios
+  // en local, no el objetivo real de la app).
+  //
+  // IMPORTANTE -- no activar "Enforce" en la consola de Firebase todavía:
+  // los builds actuales de Android/iOS se instalan por sideload (Sideloadly/
+  // APK suelto), no desde Play Store/TestFlight, así que Play Integrity y
+  // App Attest no pueden validarlos de verdad. Activar el modo estricto
+  // ahora mismo bloquearía las llamadas a Firestore/Cloud Functions en los
+  // dispositivos de prueba. Dejar en modo "Monitor" (el de por defecto)
+  // hasta que la app pase a TestFlight/Play Store de verdad.
+  if (!kIsWeb) {
+    await FirebaseAppCheck.instance.activate(
+      providerAndroid: kDebugMode ? const AndroidDebugProvider() : const AndroidPlayIntegrityProvider(),
+      providerApple: kDebugMode ? const AppleDebugProvider() : const AppleAppAttestProvider(),
+    );
+  }
 
   FirebaseFirestore.instance.settings = const Settings(
     persistenceEnabled: true,
