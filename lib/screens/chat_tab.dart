@@ -305,8 +305,15 @@ class _ChatTabState extends State<ChatTab> {
                   child: TextField(
                     controller: _textCtrl,
                     decoration: InputDecoration(hintText: l10n.chatHint),
-                    onSubmitted: (_) => _enviar(),
-                    textInputAction: TextInputAction.send,
+                    // Crece hacia arriba con el texto (como WhatsApp) en vez
+                    // de desplazarse en una sola línea infinita -- por eso
+                    // Intro pasa a insertar salto de línea en vez de enviar,
+                    // como en cualquier app de mensajería con caja multilínea;
+                    // enviar queda solo en el botón.
+                    minLines: 1,
+                    maxLines: 6,
+                    keyboardType: TextInputType.multiline,
+                    textInputAction: TextInputAction.newline,
                   ),
                 ),
                 IconButton(
