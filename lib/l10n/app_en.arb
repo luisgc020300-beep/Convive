@@ -216,6 +216,8 @@
   "householdInfoHint": "Wifi, landlord contact, agreed rules...",
   "householdInfoEmpty": "Nothing written down yet.",
   "householdInfoEdit": "Edit",
+  "householdFlatNameLabel": "Flat name",
+  "householdFlatNameHint": "E.g. Downtown Flat 2026",
   "householdYourName": "Your name in this flat",
   "householdNameHint": "How your flatmates see you",
   "householdYourHouseholds": "Your flats",

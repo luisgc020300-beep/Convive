@@ -621,6 +621,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get householdInfoEdit => 'Edit';
 
   @override
+  String get householdFlatNameLabel => 'Flat name';
+
+  @override
+  String get householdFlatNameHint => 'E.g. Downtown Flat 2026';
+
+  @override
   String get householdYourName => 'Your name in this flat';
 
   @override

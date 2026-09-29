@@ -38,6 +38,12 @@ class HouseholdService {
     await callable.call<Map<String, dynamic>>({'householdId': householdId});
   }
 
+  static Future<void> updateHouseholdName(String householdId, String name) async {
+    final callable = FirebaseFunctions.instanceFor(region: _region)
+        .httpsCallable('updateHouseholdName');
+    await callable.call<Map<String, dynamic>>({'householdId': householdId, 'name': name});
+  }
+
   /// Cuándo viste por última vez el chat/las notas de cada piso -- mapas
   /// {householdId: Timestamp} en users/{uid}, para que el contador de
   /// "nuevo" en la barra de abajo sea por piso, no global (con varios pisos,

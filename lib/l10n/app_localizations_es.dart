@@ -624,6 +624,12 @@ class AppLocalizationsEs extends AppLocalizations {
   String get householdInfoEdit => 'Editar';
 
   @override
+  String get householdFlatNameLabel => 'Nombre del piso';
+
+  @override
+  String get householdFlatNameHint => 'Ej: Piso Pedro Antonio 2026';
+
+  @override
   String get householdYourName => 'Tu nombre en el piso';
 
   @override

@@ -271,6 +271,27 @@ exports.updateNickname = onCall({ region: REGION }, async (request) => {
 });
 
 // =============================================================================
+// NOMBRE DEL PISO — cualquier miembro puede renombrarlo (households/{hid}
+// solo se escribe vía Cloud Function, ver firestore.rules)
+// =============================================================================
+exports.updateHouseholdName = onCall({ region: REGION }, async (request) => {
+  if (!request.auth) throw new HttpsError('unauthenticated', 'Debes estar autenticado.');
+  const uid = request.auth.uid;
+  const householdId = request.data?.householdId;
+  const name = typeof request.data?.name === 'string' ? request.data.name.trim() : '';
+  if (!householdId) throw new HttpsError('invalid-argument', 'Falta el piso.');
+  if (!name || name.length > 40) throw new HttpsError('invalid-argument', 'Nombre inválido.');
+
+  const houseRef = db.collection('households').doc(householdId);
+  const houseSnap = await houseRef.get();
+  if (!houseSnap.exists || !(houseSnap.data().members || []).includes(uid)) {
+    throw new HttpsError('permission-denied', 'No perteneces a ese piso.');
+  }
+  await houseRef.update({ name });
+  return { ok: true };
+});
+
+// =============================================================================
 // PISOS — cambiar de piso activo y salir de un piso
 // =============================================================================
 exports.switchActiveHousehold = onCall({ region: REGION }, async (request) => {

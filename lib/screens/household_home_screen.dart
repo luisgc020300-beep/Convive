@@ -326,7 +326,11 @@ class _HouseholdShellState extends State<_HouseholdShell> {
     return Scaffold(
                   appBar: AppBar(
                     toolbarHeight: 44,
-                    title: Text(_nombresPestanas(l10n)[_index]),
+                    // En la pestaña Piso (índice 3) se muestra el nombre real
+                    // del piso en vez de la palabra genérica "Piso" -- así
+                    // cada compañero ve "Piso Pedro Antonio 2026" y no un
+                    // rótulo igual para todos los pisos.
+                    title: Text(_index == 3 ? household.name : _nombresPestanas(l10n)[_index]),
                     actions: [
                       IconButton(
                         icon: const Icon(Icons.notifications_outlined, size: 22),
@@ -426,7 +430,9 @@ class _PisoTab extends StatefulWidget {
 
 class _PisoTabState extends State<_PisoTab> {
   late final _nicknameCtrl = TextEditingController(text: _miNombreActual());
+  late final _householdNameCtrl = TextEditingController(text: widget.household.name);
   bool _guardando = false;
+  bool _guardandoNombrePiso = false;
 
   String _miNombreActual() {
     final uid = FirebaseAuth.instance.currentUser?.uid;
@@ -436,6 +442,7 @@ class _PisoTabState extends State<_PisoTab> {
   @override
   void dispose() {
     _nicknameCtrl.dispose();
+    _householdNameCtrl.dispose();
     super.dispose();
   }
 
@@ -450,6 +457,17 @@ class _PisoTabState extends State<_PisoTab> {
     }
   }
 
+  Future<void> _guardarNombrePiso() async {
+    final nombre = _householdNameCtrl.text.trim();
+    if (nombre.isEmpty) return;
+    setState(() => _guardandoNombrePiso = true);
+    try {
+      await HouseholdService.updateHouseholdName(widget.household.id, nombre);
+    } finally {
+      if (mounted) setState(() => _guardandoNombrePiso = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final household = widget.household;
@@ -459,6 +477,27 @@ class _PisoTabState extends State<_PisoTab> {
       padding: const EdgeInsets.all(16),
       children: [
         _InfoPiso(household: household),
+        const SizedBox(height: 24),
+        Text(l10n.householdFlatNameLabel, style: Theme.of(context).textTheme.titleSmall),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(
+              child: TextField(
+                controller: _householdNameCtrl,
+                decoration: InputDecoration(hintText: l10n.householdFlatNameHint),
+              ),
+            ),
+            const SizedBox(width: 8),
+            FilledButton(
+              onPressed: _guardandoNombrePiso ? null : _guardarNombrePiso,
+              child: _guardandoNombrePiso
+                  ? const SizedBox(
+                      width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                  : Text(l10n.save),
+            ),
+          ],
+        ),
         const SizedBox(height: 24),
         Text(l10n.householdYourName, style: Theme.of(context).textTheme.titleSmall),
         const SizedBox(height: 8),

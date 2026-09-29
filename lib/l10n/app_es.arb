@@ -216,6 +216,8 @@
   "householdInfoHint": "Wifi, contacto del casero, normas acordadas...",
   "householdInfoEmpty": "Todavía no hay nada apuntado.",
   "householdInfoEdit": "Editar",
+  "householdFlatNameLabel": "Nombre del piso",
+  "householdFlatNameHint": "Ej: Piso Pedro Antonio 2026",
   "householdYourName": "Tu nombre en el piso",
   "householdNameHint": "Cómo te ven tus compañeros",
   "householdYourHouseholds": "Tus pisos",

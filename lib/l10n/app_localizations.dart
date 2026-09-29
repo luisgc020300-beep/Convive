@@ -1220,6 +1220,18 @@ abstract class AppLocalizations {
   /// **'Editar'**
   String get householdInfoEdit;
 
+  /// No description provided for @householdFlatNameLabel.
+  ///
+  /// In es, this message translates to:
+  /// **'Nombre del piso'**
+  String get householdFlatNameLabel;
+
+  /// No description provided for @householdFlatNameHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Ej: Piso Pedro Antonio 2026'**
+  String get householdFlatNameHint;
+
   /// No description provided for @householdYourName.
   ///
   /// In es, this message translates to:
