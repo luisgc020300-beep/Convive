@@ -230,6 +230,44 @@ class _HouseholdShellState extends State<_HouseholdShell> {
     _pageController.jumpToPage(i);
   }
 
+  // Atajo desde la barra superior -- mismo Cloud Function que el campo
+  // "Nombre del piso" del cuerpo de la pestaña, solo que sin tener que
+  // bajar hasta ahí.
+  Future<void> _editarNombrePiso(BuildContext context, Household household) async {
+    final ctrl = TextEditingController(text: household.name);
+    final l10n = context.l10n;
+    await showConviveSheet<void>(
+      context: context,
+      title: l10n.householdFlatNameLabel,
+      builder: (ctx, setState) => Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          TextField(
+            controller: ctrl,
+            autofocus: true,
+            decoration: InputDecoration(hintText: l10n.householdFlatNameHint),
+          ),
+          const SizedBox(height: 16),
+          FilledButton(
+            onPressed: () async {
+              final nombre = ctrl.text.trim();
+              if (nombre.isEmpty) return;
+              try {
+                await HouseholdService.updateHouseholdName(household.id, nombre);
+                if (ctx.mounted) Navigator.pop(ctx);
+              } catch (e) {
+                if (ctx.mounted) AppError.show(ctx, l10n.errorGeneric);
+              }
+            },
+            child: Text(l10n.save),
+          ),
+        ],
+      ),
+    );
+    ctrl.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     final household = widget.household;
@@ -329,8 +367,22 @@ class _HouseholdShellState extends State<_HouseholdShell> {
                     // En la pestaña Piso (índice 3) se muestra el nombre real
                     // del piso en vez de la palabra genérica "Piso" -- así
                     // cada compañero ve "Piso Pedro Antonio 2026" y no un
-                    // rótulo igual para todos los pisos.
-                    title: Text(_index == 3 ? household.name : _nombresPestanas(l10n)[_index]),
+                    // rótulo igual para todos los pisos. Tocarlo ahí mismo
+                    // abre la edición rápida, sin tener que bajar hasta el
+                    // campo "Nombre del piso" en el cuerpo de la pestaña.
+                    title: _index == 3
+                        ? GestureDetector(
+                            onTap: () => _editarNombrePiso(context, household),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Flexible(child: Text(household.name, overflow: TextOverflow.ellipsis)),
+                                const SizedBox(width: 4),
+                                Icon(Icons.edit_outlined, size: 15, color: context.colors.paperMuted),
+                              ],
+                            ),
+                          )
+                        : Text(_nombresPestanas(l10n)[_index]),
                     actions: [
                       IconButton(
                         icon: const Icon(Icons.notifications_outlined, size: 22),
